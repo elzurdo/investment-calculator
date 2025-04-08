@@ -52,7 +52,7 @@ def main():
                 if st.button("Refresh Prices"):
                     ticker_prices = fetch_stock_prices(tickers)
                     st.success("Prices refreshed successfully!")
-                    st.experimental_rerun()
+                    st.rerun()
             else:
                 st.warning("Could not fetch real-time prices. Using prices from portfolio data or random values.")
                 # Fall back to portfolio prices or random values
