@@ -1,45 +1,65 @@
 # Stock Investment Decision Helper
 
-A Streamlit application to help make investment decisions based on your current portfolio, target allocation, and available funds.
+A Streamlit application to help manage investment portfolios and optimize trading decisions.
 
 ## Features
 
-- Input your stock portfolio manually or via JSON file
-- Specify which stocks can only be purchased in whole units
-- View your current portfolio distribution
-- Set target allocations and available funds for trading
-- Get recommendations for buying/selling to reach your target allocation
-- Support for both USD and GBP currencies
-- Automatic loading of sample_portfolio.json and sample_trade_plan.json if available
+### Real-Time Prices
 
-## How to Run
+The application now supports real-time stock prices from Yahoo Finance:
 
-1. Install the required packages:
-   ```
-   pip install streamlit pandas numpy matplotlib
-   ```
+- **Automatic Price Fetching**: When enabled, the app automatically fetches current market prices for all stocks in your portfolio.
+- **Manual Price Lookup**: For new stocks being added, use the "Get Price" button to fetch the current market price.
+- **Price Refresh**: Update all prices with a single click using the "Refresh Prices" button.
+- **Special Security Handling**: The app intelligently handles different security types including stocks, ETFs, and mutual funds (like VDIGX).
+- **No API Key Required**: Uses the free yfinance package which doesn't require authentication.
 
-2. Run the application:
-   ```
-   streamlit run app.py
-   ```
+To use this feature:
 
-## Using the Application
+1. Make sure the "Use Real-Time Prices" checkbox is selected in the sidebar (enabled by default).
+2. When adding new stocks, click "Get Price" to fetch current market prices.
+3. Use the "Refresh Prices" button to update all prices at once.
 
-### Portfolio Input
-- Add stocks to your portfolio with the ticker symbol, quantity, and specify if they can only be purchased in whole units
-- Alternatively, upload a JSON file with your portfolio data
-- If sample_portfolio.json exists in the same directory, it will be loaded automatically
+### Portfolio Management
+
+- Track your current holdings
+- Visualize portfolio distribution
+- Calculate optimal trades based on target allocations
+- View projected portfolio after trades
 
 ### Trade Planning
-- Enter the amount of funds you have available to invest
-- Set your target allocation percentages for each ticker
-- Alternatively, upload a JSON file with your trade plan
-- If sample_trade_plan.json exists in the same directory, it will be loaded automatically
 
-### Trade Recommendations
-- The app will calculate and display recommended trades to achieve your target allocation
-- View the projected portfolio distribution after implementing the suggested trades
+- Set target allocations for your portfolio
+- Calculate needed trades to reach your target
+- Visualize fund flow with Sankey diagrams
+
+## Requirements
+
+This application requires the following packages:
+- streamlit>=1.22.0
+- pandas>=1.5.0
+- numpy>=1.22.0
+- matplotlib>=3.5.0
+- plotly>=5.10.0
+- yfinance>=0.2.18
+
+Install dependencies using:
+```bash
+pip install -r requirements.txt
+```
+
+## Running the Application
+
+Start the application using:
+```bash
+streamlit run app.py
+```
+
+## Notes on Real-Time Prices
+
+- Yahoo Finance data is provided for personal use and may have limitations on frequency of API calls.
+- Some tickers may require special formatting or may not be available through Yahoo Finance.
+- If a price cannot be fetched automatically, the app will fall back to values provided in your portfolio data or use default values.
 
 ## JSON File Formats
 
