@@ -8,11 +8,12 @@ from utils.file_operations import load_portfolio_from_json, load_trade_plan_from
 from utils.data_processing import calculate_current_distribution, optimize_trades
 from utils.visualization import plot_distribution, create_sankey_chart
 from utils.stock_data import fetch_stock_prices
+from utils.form_helpers import sequential_portfolio_form, explain_portfolio_upload_format
 
-st.set_page_config(page_title="Stock Investment Decision Helper", layout="wide")
+st.set_page_config(page_title="Stock Portfolio Crucher", layout="wide")
 
 def main():
-    st.title("Stock Investment Decision Helper")
+    st.title("Stock Portfolio Crucher")
     
     # Sidebar for settings
     with st.sidebar:
@@ -71,59 +72,40 @@ def main():
                 else:
                     ticker_prices[ticker] = np.random.uniform(50, 500)
     else:
-        portfolio_tab, json_tab = st.tabs(["Manual Entry", "Upload JSON"])
+        portfolio_tab, portfolio_json_tab = st.tabs(["Portfolio Summary", "Portfolio Upload"])
         
         with portfolio_tab:
             if "portfolio" not in st.session_state:
                 st.session_state.portfolio = []
             
-            col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
-            with col1:
-                ticker = st.text_input("Ticker Symbol").upper()
-            with col2:
-                quantity = st.number_input("Quantity", min_value=0.0, step=0.01)
-            with col3:
-                # Option to fetch real-time price for the ticker
-                if ticker and use_realtime_prices and st.button("Get Price"):
-                    with st.spinner(f"Fetching price for {ticker}..."):
-                        real_price = fetch_stock_prices([ticker])
-                        if real_price and ticker in real_price:
-                            price_value = real_price[ticker]
-                            st.success(f"Retrieved price for {ticker}: {currency_symbol}{price_value:.2f}")
-                        else:
-                            price_value = 100.00
-                            st.error(f"Could not fetch price for {ticker}. Using default price.")
-                else:
-                    price_value = 100.00
-                
-                price = st.number_input(f"Price ({currency_symbol})", min_value=0.01, step=0.01, value=price_value)
-            with col4:
-                whole_units = st.checkbox("Whole Units Only")
+            # Use our sequential form helper
+            ticker, quantity, price, whole_units, submit_clicked = sequential_portfolio_form(
+                use_realtime_prices, currency_symbol)
             
-            if st.button("Add to Portfolio"):
-                if ticker and quantity > 0:
-                    # Check if ticker already exists
-                    exists = False
-                    for i, item in enumerate(st.session_state.portfolio):
-                        if item["ticker"] == ticker:
-                            st.session_state.portfolio[i] = {
-                                "ticker": ticker,
-                                "quantity": quantity,
-                                "whole_units_only": whole_units
-                            }
-                            ticker_prices[ticker] = price
-                            exists = True
-                            break
-                    
-                    if not exists:
-                        st.session_state.portfolio.append({
+            # Process form submission
+            if submit_clicked and ticker and quantity > 0 and price:
+                # Check if ticker already exists
+                exists = False
+                for i, item in enumerate(st.session_state.portfolio):
+                    if item["ticker"] == ticker:
+                        st.session_state.portfolio[i] = {
                             "ticker": ticker,
                             "quantity": quantity,
                             "whole_units_only": whole_units
-                        })
+                        }
                         ticker_prices[ticker] = price
-                    
-                    st.success(f"Added {ticker} to portfolio")
+                        exists = True
+                        break
+                
+                if not exists:
+                    st.session_state.portfolio.append({
+                        "ticker": ticker,
+                        "quantity": quantity,
+                        "whole_units_only": whole_units
+                    })
+                    ticker_prices[ticker] = price
+                
+                st.success(f"Added {ticker} to portfolio")
             
             # Display current manual portfolio
             if st.session_state.portfolio:
@@ -134,7 +116,8 @@ def main():
                     if item["ticker"] not in ticker_prices:
                         ticker_prices[item["ticker"]] = 100.00  # Default price
         
-        with json_tab:
+        with portfolio_json_tab:
+            explain_portfolio_upload_format()
             uploaded_file = st.file_uploader("Upload portfolio JSON file", type=["json"])
             if uploaded_file is not None:
                 portfolio_data = load_portfolio_from_json(uploaded_file)
@@ -215,7 +198,7 @@ def main():
             if total_allocation != 100:
                 st.warning(f"Target allocation in {sample_trade_plan_path} sums to {total_allocation}%, not 100%")
         else:
-            plan_tab, plan_json_tab = st.tabs(["Manual Entry", "Upload JSON"])
+            plan_tab, plan_json_tab = st.tabs(["Portfolio Summary", "Portfolio Upload"])
             
             target_distribution = {}
             available_funds = 0.0
