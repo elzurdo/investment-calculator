@@ -7,6 +7,8 @@ import io
 from decimal import Decimal, ROUND_DOWN
 import os.path
 import plotly.graph_objects as go
+import yfinance as yf
+import time
 
 st.set_page_config(page_title="Stock Investment Decision Helper", layout="wide")
 
@@ -206,6 +208,64 @@ def create_sankey_chart(recommendations, available_funds, currency_symbol):
     
     return fig
 
+def fetch_stock_prices(tickers):
+    """Fetch real-time stock prices from Yahoo Finance"""
+    if not tickers:
+        return {}
+    
+    ticker_prices = {}
+    with st.spinner('Fetching current market prices...'):
+        try:
+            # First attempt batch download
+            ticker_string = " ".join(tickers)
+            data = yf.download(ticker_string, period="1d")
+            
+            missing_tickers = []
+            
+            # Handle different data structures based on number of tickers
+            if len(tickers) == 1:
+                if not data.empty and not pd.isna(data['Close'].iloc[-1]):
+                    ticker_prices[tickers[0]] = data['Close'].iloc[-1]
+                else:
+                    missing_tickers.append(tickers[0])
+            else:
+                # For multiple tickers
+                for ticker in tickers:
+                    # Check if ticker exists in data and has valid value
+                    if ticker in data['Close'].columns and not data['Close'][ticker].empty and not pd.isna(data['Close'][ticker].iloc[-1]):
+                        ticker_prices[ticker] = data['Close'][ticker].iloc[-1]
+                    else:
+                        missing_tickers.append(ticker)
+            
+            # For any missing or NaN tickers, try individual lookup
+            # This is especially important for mutual funds like VDIGX
+            for ticker in missing_tickers:
+                try:
+                    # Try fetching individual ticker data
+                    st.info(f"Attempting individual lookup for {ticker}...")
+                    ticker_obj = yf.Ticker(ticker)
+                    ticker_info = ticker_obj.info
+                    
+                    # For mutual funds, use 'regularMarketPrice' from info
+                    if 'regularMarketPrice' in ticker_info and ticker_info['regularMarketPrice'] is not None:
+                        ticker_prices[ticker] = ticker_info['regularMarketPrice']
+                        st.success(f"Retrieved price for {ticker} using alternative method")
+                    # Fall back to history for recent price if needed
+                    elif not ticker_obj.history(period="1d").empty:
+                        price_data = ticker_obj.history(period="1d")
+                        if 'Close' in price_data.columns and not pd.isna(price_data['Close'].iloc[-1]):
+                            ticker_prices[ticker] = price_data['Close'].iloc[-1]
+                            st.success(f"Retrieved price for {ticker} from historical data")
+                    else:
+                        st.warning(f"Could not retrieve price for {ticker} - verify the ticker symbol is correct")
+                except Exception as e:
+                    st.warning(f"Error fetching individual data for {ticker}: {e}")
+            
+            return ticker_prices
+        except Exception as e:
+            st.error(f"Error fetching stock prices: {e}")
+            return {}
+
 def main():
     st.title("Stock Investment Decision Helper")
     
@@ -214,6 +274,9 @@ def main():
         st.header("Settings")
         currency_option = st.selectbox("Currency", ["USD ($)", "GBP (£)"])
         currency_symbol = "$" if "USD" in currency_option else "£"
+        
+        # Add option to use real-time prices
+        use_realtime_prices = st.checkbox("Use Real-Time Prices", value=True)
         
     # Portfolio input section
     st.header("Current Portfolio")
@@ -229,13 +292,39 @@ def main():
         st.info(f"Found {sample_portfolio_path} file. Portfolio data is automatically loaded.")
         portfolio = portfolio_data
         
-        # Set prices from the portfolio data if available, otherwise generate random prices
-        for item in portfolio:
-            ticker = item["ticker"]
-            if "price" in item:
-                ticker_prices[ticker] = item["price"]
+        # Get list of tickers for fetching prices
+        tickers = [item["ticker"] for item in portfolio]
+        
+        # Fetch real-time prices if option is enabled
+        if use_realtime_prices:
+            realtime_prices = fetch_stock_prices(tickers)
+            if realtime_prices:
+                ticker_prices = realtime_prices
+                st.success(f"Updated prices for {len(realtime_prices)} stocks from Yahoo Finance")
+                # Show last update time
+                st.caption(f"Last price update: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+                # Add refresh button
+                if st.button("Refresh Prices"):
+                    ticker_prices = fetch_stock_prices(tickers)
+                    st.success("Prices refreshed successfully!")
+                    st.experimental_rerun()
             else:
-                ticker_prices[ticker] = np.random.uniform(50, 500)
+                st.warning("Could not fetch real-time prices. Using prices from portfolio data or random values.")
+                # Fall back to portfolio prices or random values
+                for item in portfolio:
+                    ticker = item["ticker"]
+                    if "price" in item:
+                        ticker_prices[ticker] = item["price"]
+                    else:
+                        ticker_prices[ticker] = np.random.uniform(50, 500)
+        else:
+            # Use prices from portfolio data or random values
+            for item in portfolio:
+                ticker = item["ticker"]
+                if "price" in item:
+                    ticker_prices[ticker] = item["price"]
+                else:
+                    ticker_prices[ticker] = np.random.uniform(50, 500)
     else:
         portfolio_tab, json_tab = st.tabs(["Manual Entry", "Upload JSON"])
         
@@ -249,7 +338,20 @@ def main():
             with col2:
                 quantity = st.number_input("Quantity", min_value=0.0, step=0.01)
             with col3:
-                price = st.number_input(f"Price ({currency_symbol})", min_value=0.01, step=0.01, value=100.00)
+                # Option to fetch real-time price for the ticker
+                if ticker and use_realtime_prices and st.button("Get Price"):
+                    with st.spinner(f"Fetching price for {ticker}..."):
+                        real_price = fetch_stock_prices([ticker])
+                        if real_price and ticker in real_price:
+                            price_value = real_price[ticker]
+                            st.success(f"Retrieved price for {ticker}: {currency_symbol}{price_value:.2f}")
+                        else:
+                            price_value = 100.00
+                            st.error(f"Could not fetch price for {ticker}. Using default price.")
+                else:
+                    price_value = 100.00
+                
+                price = st.number_input(f"Price ({currency_symbol})", min_value=0.01, step=0.01, value=price_value)
             with col4:
                 whole_units = st.checkbox("Whole Units Only")
             
