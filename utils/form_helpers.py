@@ -3,8 +3,9 @@ from .stock_data import fetch_stock_prices
 import pandas as pd
 import io
 import json
+from typing import Tuple, Optional, Dict, Union, Any, List
 
-def sequential_portfolio_form(use_realtime_prices, currency_symbol):
+def sequential_portfolio_form(use_realtime_prices: bool, currency_symbol: str) -> Tuple[Optional[str], Optional[float], Optional[float], bool, bool]:
     """
     Display a sequential form for adding stocks to the portfolio
     Returns a tuple of (ticker, quantity, price, whole_units_only, submit_clicked)
@@ -112,7 +113,7 @@ def sequential_portfolio_form(use_realtime_prices, currency_symbol):
     
     return ticker, quantity, st.session_state.form_price, whole_units, False
 
-def explain_portfolio_upload_format():
+def explain_portfolio_upload_format() -> None:
     """
     Display explanation about the required format for portfolio uploads
     with downloadable examples for both CSV and JSON formats.

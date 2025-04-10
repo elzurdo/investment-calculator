@@ -1,5 +1,6 @@
 import streamlit as st
 import time
+from typing import Dict, List, Optional, Tuple, Any, Union
 
 # Import utility modules
 from utils.file_operations import load_file_if_exists
@@ -15,7 +16,7 @@ from app_components.portfolio_loader import handle_portfolio_upload
 
 st.set_page_config(page_title="Stock Portfolio Crucher", layout="wide")
 
-def main():
+def main() -> None:
     # Render page header
     render_header()
     
