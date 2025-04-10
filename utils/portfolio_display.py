@@ -6,6 +6,23 @@ from .data_processing import calculate_current_distribution
 from .visualization import plot_distribution
 from .file_operations import load_file_if_exists
 
+def is_mutual_fund(ticker):
+    """Check if a ticker represents a mutual fund based on naming conventions."""
+    # Most mutual funds have X as the last letter or contain specific patterns
+    mutual_fund_patterns = ['VDIG', 'VFIN', 'VTHR', 'VGRO', 'VWEL', 'VPGD', 
+                           'VEXM', 'VWIN', 'VTWE', 'DODG', 'PIMCO', 'FXAI']
+    
+    # Check if ticker matches any mutual fund pattern
+    for pattern in mutual_fund_patterns:
+        if pattern in ticker:
+            return True
+    
+    # Check if ticker ends with X (common for mutual funds)
+    if ticker.endswith('X'):
+        return True
+        
+    return False
+
 def display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_real_time_pricing=False):
     """Display portfolio summary, distribution, and trade planning"""
     if not portfolio:
@@ -43,19 +60,43 @@ def display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_rea
                 portfolio_item["Day Change"] = "N/A"
                 portfolio_item["Day Change (%)"] = "N/A"
             else:
-                # Calculate day change values based on yesterday's closing price
-                day_change = price - prev_close
-                day_change_percent = (day_change / prev_close * 100) if prev_close != 0 else 0.0
-                
-                # Calculate total previous value for portfolio day change
-                total_previous_value += quantity * prev_close
-                
-                # Format with color and arrows
-                day_change_color = "green" if day_change >= 0 else "red"
-                day_change_arrow = "↑" if day_change >= 0 else "↓"
-                
-                portfolio_item["Day Change"] = f"<span style='color:{day_change_color}'>{day_change_arrow} {currency_symbol}{abs(day_change):,.2f}</span>"
-                portfolio_item["Day Change (%)"] = f"<span style='color:{day_change_color}'>{day_change_arrow} {abs(day_change_percent):,.2f}%</span>"
+                # Special handling for mutual funds which update once per day
+                if is_mutual_fund(ticker):
+                    # Check if mutual fund price has been updated today
+                    if price == prev_close:
+                        portfolio_item["Day Change"] = f"<span style='color:gray'>NAV updates EOD</span>"
+                        portfolio_item["Day Change (%)"] = f"<span style='color:gray'>-</span>"
+                        
+                        # Still add to previous value for total calculation
+                        total_previous_value += quantity * prev_close
+                    else:
+                        # Calculate day change if price has updated
+                        day_change = price - prev_close
+                        day_change_percent = (day_change / prev_close * 100) if prev_close != 0 else 0.0
+                        
+                        # Calculate total previous value for portfolio day change
+                        total_previous_value += quantity * prev_close
+                        
+                        # Format with color and arrows
+                        day_change_color = "green" if day_change >= 0 else "red"
+                        day_change_arrow = "↑" if day_change >= 0 else "↓"
+                        
+                        portfolio_item["Day Change"] = f"<span style='color:{day_change_color}'>{day_change_arrow} {currency_symbol}{abs(day_change):,.2f}</span>"
+                        portfolio_item["Day Change (%)"] = f"<span style='color:{day_change_color}'>{day_change_arrow} {abs(day_change_percent):,.2f}%</span>"
+                else:
+                    # Regular handling for stocks
+                    day_change = price - prev_close
+                    day_change_percent = (day_change / prev_close * 100) if prev_close != 0 else 0.0
+                    
+                    # Calculate total previous value for portfolio day change
+                    total_previous_value += quantity * prev_close
+                    
+                    # Format with color and arrows
+                    day_change_color = "green" if day_change >= 0 else "red"
+                    day_change_arrow = "↑" if day_change >= 0 else "↓"
+                    
+                    portfolio_item["Day Change"] = f"<span style='color:{day_change_color}'>{day_change_arrow} {currency_symbol}{abs(day_change):,.2f}</span>"
+                    portfolio_item["Day Change (%)"] = f"<span style='color:{day_change_color}'>{day_change_arrow} {abs(day_change_percent):,.2f}%</span>"
         
         portfolio_data.append(portfolio_item)
     

@@ -3,6 +3,9 @@ import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
 
+# Import the mutual fund detection function
+from utils.portfolio_display import is_mutual_fund
+
 @st.cache_data(ttl=300)  # Cache for 5 minutes
 def get_stock_prices(portfolio, use_realtime_prices=False):
     """
@@ -35,13 +38,36 @@ def get_stock_prices(portfolio, use_realtime_prices=False):
                     info = ticker_data.tickers[ticker].info
                     current_price = info.get('regularMarketPrice', None)
                     
-                    # Get previous closing price
-                    hist = ticker_data.tickers[ticker].history(start=previous_business_day, end=today.strftime('%Y-%m-%d'))
-                    if not hist.empty:
-                        prev_close = hist['Close'].iloc[0]
+                    # Special handling for mutual funds
+                    if is_mutual_fund(ticker):
+                        # For mutual funds, we need to look back further to find a different price
+                        # Get historical data for the past 10 business days
+                        end_date = today
+                        start_date = end_date - timedelta(days=10)
+                        hist = ticker_data.tickers[ticker].history(start=start_date.strftime('%Y-%m-%d'), 
+                                                                 end=end_date.strftime('%Y-%m-%d'))
+                        
+                        if not hist.empty:
+                            # For mutual funds, use the most recent price that's different from the current price
+                            # This ensures we show a day change even if the price hasn't been updated today
+                            for i in range(1, min(len(hist), 5)):
+                                prev_close = hist['Close'].iloc[-i-1]
+                                if abs(prev_close - current_price) > 0.001:  # Found a different price
+                                    break
+                            else:
+                                # If we couldn't find a different price, use the most recent available
+                                prev_close = hist['Close'].iloc[-2] if len(hist) > 1 else current_price
+                        else:
+                            # Fallback to the value from info
+                            prev_close = info.get('previousClose', current_price)
                     else:
-                        # Fallback to get previous close from info
-                        prev_close = info.get('previousClose', None)
+                        # Regular handling for stocks
+                        hist = ticker_data.tickers[ticker].history(start=previous_business_day, end=today.strftime('%Y-%m-%d'))
+                        if not hist.empty:
+                            prev_close = hist['Close'].iloc[0]
+                        else:
+                            # Fallback to get previous close from info
+                            prev_close = info.get('previousClose', None)
                     
                     if current_price:
                         ticker_prices[ticker] = current_price
@@ -50,7 +76,7 @@ def get_stock_prices(portfolio, use_realtime_prices=False):
                             ticker_prices[f"{ticker}_previous_close"] = prev_close
                     else:
                         # Fallback to default price if real-time price not available
-                        ticker_prices[ticker] = 100.0
+                        ticker_prices[ticker] = 100.0  # Default price
                 except Exception as e:
                     st.warning(f"Error fetching data for {ticker}: {e}")
                     ticker_prices[ticker] = 100.0  # Default price
