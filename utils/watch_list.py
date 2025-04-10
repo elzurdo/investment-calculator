@@ -58,14 +58,22 @@ def show_watch_list_tab(ticker_prices, use_realtime_prices, currency_symbol):
         ```
         
         ### CSV Format
-        Your CSV file should have at least a column named 'ticker' with stock symbols.
+        Your CSV file should have at least a column named 'ticker' with stock symbols. You can also include additional columns.
         
-        Example:
+        Basic example:
         ```
         ticker
         AAPL
         MSFT
         GOOGL
+        ```
+        
+        Extended example with optional data:
+        ```
+        ticker,purchase_date,purchase_price,units
+        AAPL,2022-01-01,159.22,2
+        MSFT,2022-01-01,308.26,1
+        GOOGL,2022-01-01,2667.02,0.5
         ```
         """)
     
