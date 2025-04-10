@@ -1,6 +1,6 @@
 import streamlit as st
 from utils.file_operations import load_file_if_exists, load_portfolio_from_json
-from utils.form_helpers import explain_portfolio_upload_format
+from utils.form_helpers import explain_portfolio_upload_format, handle_portfolio_file_upload
 from utils.portfolio_display import display_portfolio_summary
 
 def load_portfolio():
@@ -23,21 +23,24 @@ def load_portfolio():
     return st.session_state.portfolio, "manual"
 
 def handle_portfolio_upload(ticker_prices, currency_symbol):
-    """Handle portfolio upload from JSON file"""
+    """Handle portfolio upload from CSV or JSON file"""
     explain_portfolio_upload_format()
-    uploaded_file = st.file_uploader("Upload portfolio JSON file", type=["json"])
     
-    if uploaded_file is not None:
-        portfolio_data = load_portfolio_from_json(uploaded_file)
-        if portfolio_data:
-            # Set prices from the portfolio data if available
-            for item in portfolio_data:
-                ticker = item["ticker"]
-                if "price" in item:
-                    ticker_prices[ticker] = item["price"]
-            
-            display_portfolio_summary(portfolio_data, ticker_prices, currency_symbol)
-            
-            return portfolio_data
+    # Use the new file upload function that supports both CSV and JSON
+    portfolio_data = handle_portfolio_file_upload()
+    
+    if portfolio_data:
+        # Set prices from the portfolio data if available
+        for item in portfolio_data:
+            ticker = item["ticker"]
+            if "price" in item:
+                ticker_prices[ticker] = item["price"]
+        
+        display_portfolio_summary(portfolio_data, ticker_prices, currency_symbol)
+        
+        # Store the uploaded portfolio in session state
+        st.session_state.portfolio = portfolio_data
+        
+        return portfolio_data
     
     return None

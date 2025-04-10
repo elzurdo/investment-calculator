@@ -214,76 +214,171 @@ def explain_portfolio_upload_format() -> None:
     Display explanation about the required format for portfolio uploads
     with downloadable examples for both CSV and JSON formats.
     """
-    st.markdown("""
-    ### Portfolio Upload Format
-    
-    Upload your portfolio data in either CSV or JSON format with the following information:
-    
-    * **ticker**: Stock symbol (required)
-    * **quantity**: Number of shares (required)
-    * **price**: Purchase price per share (optional - if omitted, real-time prices will be used when available)
-    * **whole_units_only**: Whether fractional shares are allowed (optional, defaults to False)
-    """)
-    
-    format_tab1, format_tab2 = st.tabs(["CSV Format", "JSON Format"])
-    
-    with format_tab1:
-        # Create example CSV data
-        example_data = {
-            "ticker": ["AAPL", "MSFT", "GOOGL", "AMZN"],
-            "quantity": [10, 5, 2, 3.5],
-            "price": [175.25, 320.50, 2805.12, None],  # Note: None for price to use real-time
-            "whole_units_only": [True, True, False, False]
-        }
-        example_df = pd.DataFrame(example_data)
+    with st.expander("Portfolio Upload Format Explanation", expanded=False):
+        st.markdown("""
+        Upload your portfolio data in either CSV or JSON format with the following information:
         
-        st.markdown("**CSV Example:**")
-        # Display example as table
-        st.dataframe(example_df)
-        st.markdown("*Note: Empty price field for AMZN means real-time prices will be used if available*")
+        * **ticker**: Stock symbol (required)
+        * **quantity**: Number of shares (required)
+        * **price**: Purchase price per share (optional - if omitted, real-time prices will be used when available)
+        * **whole_units_only**: Whether fractional shares are allowed (optional, defaults to False)
+        """)
         
-        # Create downloadable CSV
-        # Replace None with empty string for CSV output
-        csv_df = example_df.copy()
-        csv_df['price'] = csv_df['price'].fillna('')
-        csv = csv_df.to_csv(index=False)
-        buffer = io.BytesIO()
-        buffer.write(csv.encode())
-        buffer.seek(0)
+        format_tab1, format_tab2 = st.tabs(["CSV Format", "JSON Format"])
         
-        # Provide download button
-        st.download_button(
-            label="Download CSV Template",
-            data=buffer,
-            file_name="portfolio_template.csv",
-            mime="text/csv"
-        )
-    
-    with format_tab2:
-        # Create example JSON data
-        example_json = [
-            {"ticker": "AAPL", "quantity": 10, "price": 175.25, "whole_units_only": True},
-            {"ticker": "MSFT", "quantity": 5, "price": 320.50, "whole_units_only": True},
-            {"ticker": "GOOGL", "quantity": 2, "price": 2805.12, "whole_units_only": False},
-            {"ticker": "AMZN", "quantity": 3.5, "whole_units_only": False}  # No price - will use real-time
-        ]
+        with format_tab1:
+            # Create example CSV data
+            example_data = {
+                "ticker": ["AAPL", "MSFT", "GOOGL", "AMZN"],
+                "quantity": [10, 5, 2, 3.5],
+                "price": [175.25, 320.50, 2805.12, None],  # Note: None for price to use real-time
+                "whole_units_only": [True, True, False, False]
+            }
+            example_df = pd.DataFrame(example_data)
+            
+            st.markdown("**CSV Example:**")
+            # Display example as table
+            st.dataframe(example_df)
+            st.markdown("*Note: Empty price field for AMZN means real-time prices will be used if available*")
+            
+            # Create downloadable CSV
+            # Replace None with empty string for CSV output
+            csv_df = example_df.copy()
+            csv_df['price'] = csv_df['price'].fillna('')
+            csv = csv_df.to_csv(index=False)
+            buffer = io.BytesIO()
+            buffer.write(csv.encode())
+            buffer.seek(0)
+            
+            # Provide download button
+            st.download_button(
+                label="Download CSV Template",
+                data=buffer,
+                file_name="portfolio_template.csv",
+                mime="text/csv"
+            )
         
-        st.markdown("**JSON Example:**")
-        st.json(example_json)
-        st.markdown("*Note: No price field for AMZN means real-time prices will be used if available*")
-        
-        # Create downloadable JSON
-        json_str = json.dumps(example_json, indent=2)
-        buffer = io.BytesIO()
-        buffer.write(json_str.encode())
-        buffer.seek(0)
-        
-        # Provide download button
-        st.download_button(
-            label="Download JSON Template",
-            data=buffer,
-            file_name="portfolio_template.json",
-            mime="application/json"
-        )
+        with format_tab2:
+            # Create example JSON data
+            example_json = [
+                {"ticker": "AAPL", "quantity": 10, "price": 175.25, "whole_units_only": True},
+                {"ticker": "MSFT", "quantity": 5, "price": 320.50, "whole_units_only": True},
+                {"ticker": "GOOGL", "quantity": 2, "price": 2805.12, "whole_units_only": False},
+                {"ticker": "AMZN", "quantity": 3.5, "whole_units_only": False}  # No price - will use real-time
+            ]
+            
+            st.markdown("**JSON Example:**")
+            st.json(example_json)
+            st.markdown("*Note: No price field for AMZN means real-time prices will be used if available*")
+            
+            # Create downloadable JSON
+            json_str = json.dumps(example_json, indent=2)
+            buffer = io.BytesIO()
+            buffer.write(json_str.encode())
+            buffer.seek(0)
+            
+            # Provide download button
+            st.download_button(
+                label="Download JSON Template",
+                data=buffer,
+                file_name="portfolio_template.json",
+                mime="application/json"
+            )
     
     return
+
+def handle_portfolio_file_upload() -> Optional[List[Dict[str, Any]]]:
+    """
+    Handle the upload of portfolio data files (CSV or JSON).
+    
+    Returns:
+        A list of portfolio items if successful, None otherwise.
+    """
+    st.write("Upload your portfolio file (CSV or JSON format)")
+    
+    # File uploader
+    uploaded_file = st.file_uploader("Choose a file", type=["csv", "json"])
+    
+    if not uploaded_file:
+        return None
+    
+    # Determine file type
+    file_type = None
+    manual_type_selection = st.checkbox("Manually specify file type")
+    
+    if manual_type_selection:
+        file_type = st.radio("Select file type:", options=["CSV", "JSON"])
+    else:
+        # Auto-detect based on extension
+        if uploaded_file.name.lower().endswith('.csv'):
+            file_type = "CSV"
+        elif uploaded_file.name.lower().endswith('.json'):
+            file_type = "JSON"
+        else:
+            st.error("Unable to determine file type. Please select file type manually.")
+            file_type = st.radio("Select file type:", options=["CSV", "JSON"])
+    
+    try:
+        portfolio_data = []
+        
+        if file_type == "CSV":
+            # Process CSV file
+            df = pd.read_csv(uploaded_file)
+            
+            # Validate required columns
+            if 'ticker' not in df.columns or 'quantity' not in df.columns:
+                st.error("CSV file must contain 'ticker' and 'quantity' columns.")
+                return None
+            
+            # Convert DataFrame to list of dictionaries
+            for _, row in df.iterrows():
+                item = {
+                    'ticker': str(row['ticker']).strip().upper(),
+                    'quantity': float(row['quantity'])
+                }
+                
+                # Optional fields
+                if 'price' in df.columns and pd.notna(row['price']):
+                    item['price'] = float(row['price'])
+                
+                if 'whole_units_only' in df.columns and pd.notna(row['whole_units_only']):
+                    item['whole_units_only'] = bool(row['whole_units_only'])
+                else:
+                    item['whole_units_only'] = False
+                
+                portfolio_data.append(item)
+        
+        elif file_type == "JSON":
+            # Process JSON file
+            portfolio_data = json.load(uploaded_file)
+            
+            # Validate the data structure
+            if not isinstance(portfolio_data, list):
+                st.error("JSON file must contain a list of portfolio items.")
+                return None
+            
+            # Validate required fields in each item
+            for item in portfolio_data:
+                if 'ticker' not in item or 'quantity' not in item:
+                    st.error("Each item must contain 'ticker' and 'quantity' fields.")
+                    return None
+                
+                # Convert ticker to uppercase and ensure it's a string
+                item['ticker'] = str(item['ticker']).strip().upper()
+                
+                # Ensure quantity is a float
+                item['quantity'] = float(item['quantity'])
+                
+                # Set default for whole_units_only if not present
+                if 'whole_units_only' not in item:
+                    item['whole_units_only'] = False
+                else:
+                    item['whole_units_only'] = bool(item['whole_units_only'])
+        
+        # Display success message with count of loaded positions
+        st.success(f"Successfully loaded {len(portfolio_data)} positions from {file_type} file.")
+        return portfolio_data
+        
+    except Exception as e:
+        st.error(f"Error processing file: {str(e)}")
+        return None
