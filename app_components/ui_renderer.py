@@ -2,7 +2,7 @@ import streamlit as st
 
 def render_header():
     """Render the page header with logo"""
-    st.title("Stock Portfolio Crucher")
+    st.title("Stock Portfolio Cruncher")
 
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:

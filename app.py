@@ -14,7 +14,7 @@ from utils.portfolio_display import display_portfolio_summary
 from app_components.portfolio_manager import handle_manual_portfolio_input, display_current_portfolio
 from app_components.portfolio_loader import handle_portfolio_upload
 
-st.set_page_config(page_title="Stock Portfolio Crucher", layout="wide")
+st.set_page_config(page_title="Stock Portfolio Cruncher", layout="wide")
 
 def main() -> None:
     # Render page header
