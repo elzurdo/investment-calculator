@@ -61,7 +61,7 @@ def main() -> None:
             show_watch_list_tab(ticker_prices, use_realtime_prices, currency_symbol)
     else:
         # Manual portfolio input or no portfolio loaded
-        portfolio_tab, portfolio_json_tab, watch_list_tab, about = st.tabs(["Portfolio Summary", "Portfolio Upload", "Watch Lists", "About"])
+        portfolio_tab, portfolio_json_tab, watch_list_tab, about_tab = st.tabs(["Portfolio Summary", "Portfolio Upload", "Watch Lists", "About"])
         
         with portfolio_tab:
             # Handle manual portfolio input
