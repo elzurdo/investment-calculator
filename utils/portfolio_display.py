@@ -289,7 +289,7 @@ def display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_rea
     
     # Generate trade recommendations
     # Use a small tolerance for checking if allocation is 100%
-    TOLERANCE = 0.0001  # 0.0001% tolerance for floating point precision
+    TOLERANCE = 0.1 #0.1% tolerance for floating point precision
     if target_distribution and abs(total_allocation - 100) <= TOLERANCE:
         st.header("Trade Recommendations")
         
