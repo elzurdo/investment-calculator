@@ -6,7 +6,7 @@ from .data_processing import calculate_current_distribution
 from .visualization import plot_distribution
 from .file_operations import load_file_if_exists
 
-def display_portfolio_summary(portfolio, ticker_prices, currency_symbol):
+def display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_real_time_pricing=False):
     """Display portfolio summary, distribution, and trade planning"""
     if not portfolio:
         return
@@ -19,16 +19,45 @@ def display_portfolio_summary(portfolio, ticker_prices, currency_symbol):
         price = ticker_prices.get(ticker, 100.00)
         value = quantity * price
         
-        portfolio_data.append({
+        portfolio_item = {
             "Ticker": ticker,
             "Quantity": quantity,
             "Price": f"{currency_symbol}{price:.2f}",
             "Value": f"{currency_symbol}{value:.2f}",
             "Type": "Whole Units Only" if item["whole_units_only"] else "Fractional"
-        })
+        }
+        
+        # Add day change columns if real-time pricing is enabled
+        if use_real_time_pricing:
+            # Get previous closing price from yesterday
+            # The ticker_prices dictionary must contain yesterday's closing prices
+            # with the key format "{ticker}_previous_close" when real-time pricing is enabled
+            prev_close = ticker_prices.get(f"{ticker}_previous_close")
+            
+            if prev_close is None:
+                # If previous closing price isn't available, show N/A for day change
+                portfolio_item["Day Change"] = "N/A"
+                portfolio_item["Day Change (%)"] = "N/A"
+            else:
+                # Calculate day change values based on yesterday's closing price
+                day_change = price - prev_close
+                day_change_percent = (day_change / prev_close * 100) if prev_close != 0 else 0.0
+                
+                # Format with color and arrows
+                day_change_color = "green" if day_change >= 0 else "red"
+                day_change_arrow = "↑" if day_change >= 0 else "↓"
+                
+                portfolio_item["Day Change"] = f"<span style='color:{day_change_color}'>{day_change_arrow} {currency_symbol}{abs(day_change):.2f}</span>"
+                portfolio_item["Day Change (%)"] = f"<span style='color:{day_change_color}'>{day_change_arrow} {abs(day_change_percent):.2f}%</span>"
+        
+        portfolio_data.append(portfolio_item)
     
     st.subheader("Current Holdings")
-    st.dataframe(pd.DataFrame(portfolio_data))
+    # Use st.write with unsafe_allow_html=True to render HTML in the table for colored arrows
+    if use_real_time_pricing:
+        st.write(pd.DataFrame(portfolio_data).to_html(escape=False), unsafe_allow_html=True)
+    else:
+        st.dataframe(pd.DataFrame(portfolio_data))
     
     # Calculate and display distribution
     distribution = calculate_current_distribution(portfolio, ticker_prices)

@@ -9,6 +9,7 @@ from utils.watch_list import show_watch_list_tab
 from app_components.portfolio_loader import load_portfolio
 from app_components.price_manager import get_stock_prices
 from app_components.ui_renderer import render_header, render_sidebar
+from utils.portfolio_display import display_portfolio_summary
 
 st.set_page_config(page_title="Stock Portfolio Crucher", layout="wide")
 
@@ -36,8 +37,7 @@ def main():
             portfolio_tab, watch_list_tab = st.tabs(["Portfolio Summary", "Watch Lists"])
             
             with portfolio_tab:
-                from utils.portfolio_display import display_portfolio_summary
-                display_portfolio_summary(portfolio, ticker_prices, currency_symbol)
+                display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_real_time_pricing=use_realtime_prices)
                 
             with watch_list_tab:
                 show_watch_list_tab(ticker_prices, use_realtime_prices, currency_symbol)
