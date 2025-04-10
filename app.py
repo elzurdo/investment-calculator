@@ -21,6 +21,12 @@ st.set_page_config(page_title="Stock Portfolio Crucher", layout="wide")
 
 def main():
     st.title("Stock Portfolio Crucher")
+
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.image("assets/ChatGPT_Image_2025-04-09_09_38_48_AM_67f585d7-2c00-8003-bdab-9a8b571f2650.png", width=250)
+        st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
     
     # Sidebar for settings
     with st.sidebar:
