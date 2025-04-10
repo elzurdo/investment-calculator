@@ -59,8 +59,9 @@ def sequential_portfolio_form(use_realtime_prices: bool, currency_symbol: str) -
                         fetched_price = real_price[ticker]
                         st.session_state.form_price = fetched_price
                         st.session_state.real_time_price_fetched = True
-                        st.success(f"Retrieved price for {ticker}: {currency_symbol}{fetched_price:.2f}")
                         price = fetched_price
+                        # Rerun the app to update the price field in the UI
+                        st.rerun()
                     else:
                         st.error(f"Could not fetch price for {ticker}.")
     
