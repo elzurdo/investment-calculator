@@ -170,8 +170,30 @@ def display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_rea
         st.metric("Total Allocation", f"{total_allocation:.1f}%", 
                  delta=f"{total_allocation - 100:.1f}%" if total_allocation != 100 else None)
         
+        # Define threshold for what's considered "close" to 100%
+        threshold = 0.5  # ±0.5%
+        
         if total_allocation != 100:
-            st.warning(f"Target allocation in {sample_trade_plan_path} sums to {total_allocation}%, not 100%")
+            if abs(total_allocation - 100) <= threshold:
+                # Auto-adjust values proportionally
+                adjustment_factor = 100 / total_allocation
+                original_values = target_distribution.copy()
+                
+                # Adjust each value proportionally
+                for ticker in target_distribution:
+                    target_distribution[ticker] = round(target_distribution[ticker] * adjustment_factor, 2)
+                
+                # Ensure the sum is exactly 100% after rounding
+                adjusted_total = sum(target_distribution.values())
+                if adjusted_total != 100:
+                    # Add/subtract the remaining tiny difference to/from the largest allocation
+                    largest_ticker = max(target_distribution.items(), key=lambda x: x[1])[0]
+                    target_distribution[largest_ticker] += (100 - adjusted_total)
+                
+                st.info(f"Allocation was {total_allocation:.2f}% and has been automatically adjusted to 100%. "
+                       f"This small correction ensures optimal trade calculations.")
+            else:
+                st.warning(f"Target allocation in {sample_trade_plan_path} sums to {total_allocation}%, not 100%")
     else:
         plan_tab, plan_json_tab = st.tabs(["Portfolio Summary", "Portfolio Upload"])
         
@@ -202,8 +224,30 @@ def display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_rea
             st.metric("Total Allocation", f"{total_allocation:.1f}%", 
                      delta=f"{total_allocation - 100:.1f}%" if total_allocation != 100 else None)
             
+            # Define threshold for what's considered "close" to 100%
+            threshold = 0.5  # ±0.5%
+            
             if total_allocation != 100:
-                st.warning("Target allocation should sum to 100%")
+                if abs(total_allocation - 100) <= threshold:
+                    # Auto-adjust values proportionally
+                    adjustment_factor = 100 / total_allocation
+                    original_values = target_distribution.copy()
+                    
+                    # Adjust each value proportionally
+                    for ticker in target_distribution:
+                        target_distribution[ticker] = round(target_distribution[ticker] * adjustment_factor, 2)
+                    
+                    # Ensure the sum is exactly 100% after rounding
+                    adjusted_total = sum(target_distribution.values())
+                    if adjusted_total != 100:
+                        # Add/subtract the remaining tiny difference to/from the largest allocation
+                        largest_ticker = max(target_distribution.items(), key=lambda x: x[1])[0]
+                        target_distribution[largest_ticker] += (100 - adjusted_total)
+                    
+                    st.info(f"Allocation was {total_allocation:.2f}% and has been automatically adjusted to 100%. "
+                           f"This small correction ensures optimal trade calculations.")
+                else:
+                    st.warning("Target allocation should sum to 100%")
         
         with plan_json_tab:
             plan_file = st.file_uploader("Upload trade plan JSON", type=["json"])
@@ -215,11 +259,38 @@ def display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_rea
                     
                     # Validate total is 100%
                     total_allocation = sum(target_distribution.values())
+                    st.metric("Total Allocation", f"{total_allocation:.1f}%", 
+                             delta=f"{total_allocation - 100:.1f}%" if total_allocation != 100 else None)
+                    
+                    # Define threshold for what's considered "close" to 100%
+                    threshold = 0.5  # ±0.5%
+                    
                     if total_allocation != 100:
-                        st.warning(f"Target allocation in JSON sums to {total_allocation}%, not 100%")
+                        if abs(total_allocation - 100) <= threshold:
+                            # Auto-adjust values proportionally
+                            adjustment_factor = 100 / total_allocation
+                            original_values = target_distribution.copy()
+                            
+                            # Adjust each value proportionally
+                            for ticker in target_distribution:
+                                target_distribution[ticker] = round(target_distribution[ticker] * adjustment_factor, 2)
+                            
+                            # Ensure the sum is exactly 100% after rounding
+                            adjusted_total = sum(target_distribution.values())
+                            if adjusted_total != 100:
+                                # Add/subtract the remaining tiny difference to/from the largest allocation
+                                largest_ticker = max(target_distribution.items(), key=lambda x: x[1])[0]
+                                target_distribution[largest_ticker] += (100 - adjusted_total)
+                            
+                            st.info(f"Allocation was {total_allocation:.2f}% and has been automatically adjusted to 100%. "
+                                   f"This small correction ensures optimal trade calculations.")
+                        else:
+                            st.warning(f"Target allocation in JSON sums to {total_allocation}%, not 100%")
     
     # Generate trade recommendations
-    if target_distribution and 'total_allocation' in locals() and total_allocation == 100:
+    # Use a small tolerance for checking if allocation is 100%
+    TOLERANCE = 0.0001  # 0.0001% tolerance for floating point precision
+    if target_distribution and abs(total_allocation - 100) <= TOLERANCE:
         st.header("Trade Recommendations")
         
         from .data_processing import optimize_trades
@@ -237,10 +308,16 @@ def display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_rea
             st.dataframe(recommendations)
             
             # Create Sankey chart to visualize the trade plan
-            sankey_fig = create_sankey_chart(recommendations, available_funds, currency_symbol)
-            if sankey_fig:
-                st.subheader("Trade Plan Visualization")
-                st.plotly_chart(sankey_fig, use_container_width=True)
+            try:
+                sankey_fig = create_sankey_chart(recommendations, available_funds, currency_symbol)
+                
+                if sankey_fig:
+                    st.subheader("Trade Plan Visualization")
+                    st.plotly_chart(sankey_fig, use_container_width=True)
+                else:
+                    st.info("Couldn't generate Sankey visualization based on current trades.")
+            except Exception as e:
+                st.warning(f"Unable to display Sankey diagram: {str(e)}")
             
             # Calculate and display projected portfolio
             st.subheader("Projected Portfolio After Trades")
