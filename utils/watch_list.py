@@ -49,7 +49,8 @@ def show_watch_list_tab(ticker_prices, use_realtime_prices, currency_symbol):
             "historical_data": [
               {
                 "date": "2022-01-01",
-                "value": 159.22
+                "price": 159.22,
+                "value": 318.44
               }
             ]
           }
@@ -126,15 +127,20 @@ def display_watch_list(file_path, ticker_prices, use_realtime_prices, currency_s
             if historical_data:
                 # Get the first (and should be only) historical data point
                 historical_point = historical_data[0]
+                historical_price = float(historical_point['price'])
                 historical_value = float(historical_point['value'])
                 historical_date = historical_point['date']
                 
                 # Get current price if available
-                current_price = current_prices.get(ticker, ticker_prices.get(ticker, historical_value))
+                current_price = current_prices.get(ticker, ticker_prices.get(ticker, historical_price))
                 
-                # Calculate change
-                absolute_change = current_price - historical_value
-                percent_change = (absolute_change / historical_value) * 100 if historical_value else 0
+                # Calculate number of units and current value
+                units = historical_value / historical_price if historical_price else 0
+                current_value = current_price * units
+                
+                # Calculate change based on price
+                absolute_change = current_price - historical_price
+                percent_change = (absolute_change / historical_price) * 100 if historical_price else 0
                 
                 # Color code and add arrows based on change direction
                 change_color = "green" if absolute_change >= 0 else "red"
@@ -142,9 +148,11 @@ def display_watch_list(file_path, ticker_prices, use_realtime_prices, currency_s
                 
                 watch_list_table.append({
                     'Ticker': ticker,
-                    'Current Value': f"{currency_symbol}{current_price:.2f}",
-                    'Previous Value': f"{currency_symbol}{historical_value:.2f}",
                     'Previous Date': historical_date,
+                    'Previous Price': f"{currency_symbol}{historical_price:.2f}",
+                    'Previous Value': f"{currency_symbol}{historical_value:.2f}",
+                    'Current Price': f"{currency_symbol}{current_price:.2f}",
+                    'Current Value': f"{currency_symbol}{current_value:.2f}",
                     'Change': f"<span style='color:{change_color}'>{change_arrow} {currency_symbol}{abs(absolute_change):.2f}</span>",
                     'Change %': f"<span style='color:{change_color}'>{change_arrow} {abs(percent_change):.2f}%</span>"
                 })
@@ -157,9 +165,11 @@ def display_watch_list(file_path, ticker_prices, use_realtime_prices, currency_s
                 current_price = current_prices.get(ticker, ticker_prices.get(ticker, 0))
                 watch_list_table.append({
                     'Ticker': ticker,
-                    'Current Value': f"{currency_symbol}{current_price:.2f}",
-                    'Previous Value': 'N/A',
                     'Previous Date': 'N/A',
+                    'Previous Price': 'N/A',
+                    'Previous Value': 'N/A',
+                    'Current Price': f"{currency_symbol}{current_price:.2f}",
+                    'Current Value': 'N/A',
                     'Change': 'N/A',
                     'Change %': 'N/A'
                 })
@@ -178,18 +188,18 @@ def plot_historical_data(ticker, historical_point, current_price, currency_symbo
     """Plot historical price data compared to current price"""
     # Create simple two-point plot
     historical_date = datetime.strptime(historical_point['date'], '%Y-%m-%d')
-    historical_value = float(historical_point['value'])
+    historical_price = float(historical_point['price'])  # Changed from 'value' to 'price'
     today = datetime.now()
     
     # Create DataFrame with two points
     df = pd.DataFrame([
-        {'date': historical_date, 'value': historical_value},
-        {'date': today, 'value': current_price}
+        {'date': historical_date, 'price': historical_price},  # Changed from 'value' to 'price'
+        {'date': today, 'price': current_price}  # Changed from 'value' to 'price'
     ])
     
     # Create plot
     fig, ax = plt.subplots(figsize=(10, 6))
-    ax.plot(df['date'], df['value'], marker='o', linestyle='-')
+    ax.plot(df['date'], df['price'], marker='o', linestyle='-')  # Changed from 'value' to 'price'
     
     # Add title and labels
     ax.set_title(f"{ticker} Price Comparison")
@@ -205,8 +215,8 @@ def plot_historical_data(ticker, historical_point, current_price, currency_symbo
     
     # Show price labels
     for i, row in df.iterrows():
-        ax.annotate(f"{currency_symbol}{row['value']:.2f}", 
-                   (row['date'], row['value']),
+        ax.annotate(f"{currency_symbol}{row['price']:.2f}",  # Changed from 'value' to 'price'
+                   (row['date'], row['price']),  # Changed from 'value' to 'price'
                    textcoords="offset points",
                    xytext=(0,10), 
                    ha='center')
@@ -228,16 +238,25 @@ def create_sample_watch_list(watch_list_dir):
         # 'TSLA': 829.10     # Pre-split price
     }
     
+    # Sample units for each ticker
+    units = {
+        'AAPL': 2,
+        'MSFT': 1
+    }
+    
     # Generate sample data
     watch_list_data = []
     
     for ticker in tickers:
+        price = historical_prices[ticker]
+        units_owned = units[ticker]
         watch_list_data.append({
             'ticker': ticker,
             'historical_data': [
                 {
                     'date': '2022-01-01',
-                    'value': historical_prices[ticker]
+                    'price': price,  # Changed from 'value' to 'price'
+                    'value': price * units_owned  # Added calculated value
                 }
             ]
         })
