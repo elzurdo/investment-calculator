@@ -23,8 +23,18 @@ def sequential_portfolio_form(use_realtime_prices: bool, currency_symbol: str) -
         st.session_state.real_time_price_fetched = False
     
     # Step 1: Ticker Symbol
-    ticker = st.text_input("Ticker Symbol", value=st.session_state.form_ticker).upper()
+    st.subheader("Add Stock to Portfolio")
+    st.markdown("Enter the stock ticker symbol and other details that follow.")
+
+    # Add ticker validation and helpful tooltip
+    ticker_help = "Enter the stock symbol (e.g., AAPL for Apple Inc.)"
+    ticker = st.text_input("Ticker Symbol", value=st.session_state.form_ticker, 
+                           help=ticker_help).upper().strip()
     st.session_state.form_ticker = ticker
+    
+    # Validate ticker format
+    if ticker and not ticker.isalnum():
+        st.warning("Ticker symbols typically contain only letters and numbers.")
     
     # Only proceed if ticker is entered
     if not ticker:
@@ -40,7 +50,8 @@ def sequential_portfolio_form(use_realtime_prices: bool, currency_symbol: str) -
             min_value=0.01, 
             step=0.01, 
             value=st.session_state.form_price if st.session_state.form_price else None,
-            placeholder="Enter price"
+            placeholder="Enter price",
+            help="Enter the price per share"
         )
         
         # Update session state with manual price if entered
@@ -51,19 +62,28 @@ def sequential_portfolio_form(use_realtime_prices: bool, currency_symbol: str) -
     with col2:
         # Option to fetch real-time price
         if use_realtime_prices and ticker:
-            fetch_price = st.button("Get Real-Time Price")
+            fetch_price = st.button("Get Real-Time Price", 
+                                   help=f"Fetch current market price for {ticker}")
+            
+            # Display last fetched status if available
+            if st.session_state.real_time_price_fetched and st.session_state.form_price:
+                st.success(f"Last fetched price: {currency_symbol}{st.session_state.form_price:.2f}")
+                
             if fetch_price:
                 with st.spinner(f"Fetching price for {ticker}..."):
-                    real_price = fetch_stock_prices([ticker])
-                    if real_price and ticker in real_price:
-                        fetched_price = real_price[ticker]
-                        st.session_state.form_price = fetched_price
-                        st.session_state.real_time_price_fetched = True
-                        price = fetched_price
-                        # Rerun the app to update the price field in the UI
-                        st.rerun()
-                    else:
-                        st.error(f"Could not fetch price for {ticker}.")
+                    try:
+                        real_price = fetch_stock_prices([ticker])
+                        if real_price and ticker in real_price:
+                            fetched_price = real_price[ticker]
+                            st.session_state.form_price = fetched_price
+                            st.session_state.real_time_price_fetched = True
+                            price = fetched_price
+                            # Rerun the app to update the price field in the UI
+                            st.rerun()
+                        else:
+                            st.error(f"Could not fetch price for {ticker}.")
+                    except Exception as e:
+                        st.error(f"An error occurred while fetching price: {str(e)}")
     
     # Only proceed if we have a price
     if not st.session_state.form_price:
