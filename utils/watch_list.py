@@ -136,13 +136,17 @@ def display_watch_list(file_path, ticker_prices, use_realtime_prices, currency_s
                 absolute_change = current_price - historical_value
                 percent_change = (absolute_change / historical_value) * 100 if historical_value else 0
                 
+                # Color code and add arrows based on change direction
+                change_color = "green" if absolute_change >= 0 else "red"
+                change_arrow = "↑" if absolute_change >= 0 else "↓"
+                
                 watch_list_table.append({
                     'Ticker': ticker,
                     'Current Value': f"{currency_symbol}{current_price:.2f}",
                     'Previous Value': f"{currency_symbol}{historical_value:.2f}",
                     'Previous Date': historical_date,
-                    'Change': f"{currency_symbol}{absolute_change:.2f}",
-                    'Change %': f"{percent_change:.2f}%"
+                    'Change': f"<span style='color:{change_color}'>{change_arrow} {currency_symbol}{abs(absolute_change):.2f}</span>",
+                    'Change %': f"<span style='color:{change_color}'>{change_arrow} {abs(percent_change):.2f}%</span>"
                 })
                 
                 # Plot historical data
@@ -162,7 +166,8 @@ def display_watch_list(file_path, ticker_prices, use_realtime_prices, currency_s
         
         # Display watch list table
         if watch_list_table:
-            st.dataframe(pd.DataFrame(watch_list_table))
+            df = pd.DataFrame(watch_list_table)
+            st.write(df.to_html(escape=False), unsafe_allow_html=True)
         else:
             st.info("No data in this watch list.")
     
