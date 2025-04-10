@@ -85,19 +85,20 @@ def main() -> None:
         ---
 
         <h2>About the App</h2>
-        <p>This mortgage calculator is a Streamlit app that allows you to calculate and visualize mortgage payments. 
-        You can compare different scenarios, including overpayments and changes in interest rates over time.</p>
+        <p>This stock portfolio calculator is a Streamlit app that allows you to calculate and visualize stock portfolio and trading strategies.
         
         <h3>Features</h3>
         <ul>
-            <li>Calculate mortgage payments with different interest rates and overpayments</li>
-            <li>Visualise the payment schedule, including principal, interest, and remaining balance</li>
-            <li>Compare scenarios with different interest rates over time</li>
+            <li>Real-time stock prices</li>
+            <li>Portfolio upload in JSON format</li>
+            <li>Manual portfolio input</li>
+            <li>Watch list feature</li>
+            <li>Portfolio summary with total value, profit/loss, and percentage change</li>
+            <li>Currency conversion</li>
+            <li>Interactive charts and graphs</li>
+            <li>Responsive design for mobile and desktop</li>
+
         </ul>
-        
-        <h3>How to Use</h3>
-        <p>Use the sidebar to adjust the mortgage parameters, such as loan amount, interest rate, and overpayments. 
-        You can also switch between different tabs to explore the standard calculator, overpayment calculator, and counterfactual analysis.</p>
         
         <h3>Source Code</h3>
         <p>The source code for this app is available on <a href=https://github.com/elzurdo/investment-calculator>GitHub</a>. </p
