@@ -13,17 +13,21 @@ def display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_rea
     
     # Create and display portfolio table
     portfolio_data = []
+    total_value = 0
+    total_previous_value = 0
+    
     for item in portfolio:
         ticker = item["ticker"]
         quantity = item["quantity"]
         price = ticker_prices.get(ticker, 100.00)
         value = quantity * price
+        total_value += value
         
         portfolio_item = {
             "Ticker": ticker,
             "Quantity": quantity,
-            "Price": f"{currency_symbol}{price:.2f}",
-            "Value": f"{currency_symbol}{value:.2f}",
+            "Price": f"{currency_symbol}{price:,.2f}",
+            "Value": f"{currency_symbol}{value:,.2f}",
             "Type": "Whole Units Only" if item["whole_units_only"] else "Fractional"
         }
         
@@ -43,16 +47,37 @@ def display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_rea
                 day_change = price - prev_close
                 day_change_percent = (day_change / prev_close * 100) if prev_close != 0 else 0.0
                 
+                # Calculate total previous value for portfolio day change
+                total_previous_value += quantity * prev_close
+                
                 # Format with color and arrows
                 day_change_color = "green" if day_change >= 0 else "red"
                 day_change_arrow = "↑" if day_change >= 0 else "↓"
                 
-                portfolio_item["Day Change"] = f"<span style='color:{day_change_color}'>{day_change_arrow} {currency_symbol}{abs(day_change):.2f}</span>"
-                portfolio_item["Day Change (%)"] = f"<span style='color:{day_change_color}'>{day_change_arrow} {abs(day_change_percent):.2f}%</span>"
+                portfolio_item["Day Change"] = f"<span style='color:{day_change_color}'>{day_change_arrow} {currency_symbol}{abs(day_change):,.2f}</span>"
+                portfolio_item["Day Change (%)"] = f"<span style='color:{day_change_color}'>{day_change_arrow} {abs(day_change_percent):,.2f}%</span>"
         
         portfolio_data.append(portfolio_item)
     
     st.subheader("Current Holdings")
+    
+    # Display total portfolio value
+    st.markdown(f"#### Total Portfolio Value: {currency_symbol}{total_value:,.2f}")
+    
+    # If real-time pricing is enabled, display total day change
+    if use_real_time_pricing and total_previous_value > 0:
+        total_day_change = total_value - total_previous_value
+        total_day_change_percent = (total_day_change / total_previous_value * 100) if total_previous_value != 0 else 0.0
+        
+        day_change_color = "green" if total_day_change >= 0 else "red"
+        day_change_arrow = "↑" if total_day_change >= 0 else "↓"
+        
+        st.markdown(
+            f"#### Day Change: <span style='color:{day_change_color}'>{day_change_arrow} "
+            f"{currency_symbol}{abs(total_day_change):,.2f} ({abs(total_day_change_percent):,.2f}%)</span>", 
+            unsafe_allow_html=True
+        )
+    
     # Use st.write with unsafe_allow_html=True to render HTML in the table for colored arrows
     if use_real_time_pricing:
         st.write(pd.DataFrame(portfolio_data).to_html(escape=False), unsafe_allow_html=True)
@@ -91,7 +116,7 @@ def display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_rea
         
         # Display the loaded data
         st.subheader("Loaded Trade Plan")
-        st.write(f"Available Funds: {currency_symbol}{available_funds:.2f}")
+        st.write(f"Available Funds: {currency_symbol}{available_funds:,.2f}")
         
         # Display target allocation
         st.subheader("Target Distribution (%)")
