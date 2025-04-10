@@ -1,26 +1,27 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
+from typing import Dict, List, Optional, Union
 
-def fetch_stock_prices(tickers):
+def fetch_stock_prices(tickers: List[str]) -> Dict[str, float]:
     """Fetch real-time stock prices from Yahoo Finance"""
     if not tickers:
         return {}
     
-    ticker_prices = {}
+    ticker_prices: Dict[str, float] = {}
     with st.spinner('Fetching current market prices...'):
         try:
             # Single ticker approach first (more reliable for individual lookups)
             if len(tickers) == 1:
-                ticker = tickers[0]
+                ticker: str = tickers[0]
                 try:
                     # Use direct Ticker object approach for single ticker
-                    ticker_obj = yf.Ticker(ticker)
+                    ticker_obj: yf.Ticker = yf.Ticker(ticker)
                     
                     # Try to get the most recent price from history
-                    history = ticker_obj.history(period="1d")
+                    history: pd.DataFrame = ticker_obj.history(period="1d")
                     if not history.empty and 'Close' in history.columns:
-                        last_close = history['Close'].iloc[-1]
+                        last_close: float = history['Close'].iloc[-1]
                         if not pd.isna(last_close):
                             ticker_prices[ticker] = last_close
                             st.success(f"Retrieved price for {ticker}: {last_close:.2f}")
@@ -28,7 +29,7 @@ def fetch_stock_prices(tickers):
                     
                     # Fallback to info property if history fails
                     if hasattr(ticker_obj, 'info'):
-                        info = ticker_obj.info
+                        info: Dict[str, Union[float, str, int, None]] = ticker_obj.info
                         if 'regularMarketPrice' in info and info['regularMarketPrice'] is not None:
                             ticker_prices[ticker] = info['regularMarketPrice']
                             st.success(f"Retrieved market price for {ticker}: {info['regularMarketPrice']:.2f}")
@@ -47,10 +48,10 @@ def fetch_stock_prices(tickers):
             # Multiple tickers approach
             else:
                 # First attempt batch download
-                ticker_string = " ".join(tickers)
-                data = yf.download(ticker_string, period="1d", progress=False)
+                ticker_string: str = " ".join(tickers)
+                data: pd.DataFrame = yf.download(ticker_string, period="1d", progress=False)
                 
-                missing_tickers = []
+                missing_tickers: List[str] = []
                 
                 # Process the data for multiple tickers
                 for ticker in tickers:
@@ -71,12 +72,12 @@ def fetch_stock_prices(tickers):
                     try:
                         # Try fetching individual ticker data
                         st.info(f"Attempting individual lookup for {ticker}...")
-                        ticker_obj = yf.Ticker(ticker)
+                        ticker_obj: yf.Ticker = yf.Ticker(ticker)
                         
                         # Try to get the most recent price from history
-                        history = ticker_obj.history(period="1d")
+                        history: pd.DataFrame = ticker_obj.history(period="1d")
                         if not history.empty and 'Close' in history.columns:
-                            last_close = history['Close'].iloc[-1]
+                            last_close: float = history['Close'].iloc[-1]
                             if not pd.isna(last_close):
                                 ticker_prices[ticker] = last_close
                                 st.success(f"Retrieved price for {ticker} from historical data")
@@ -84,7 +85,7 @@ def fetch_stock_prices(tickers):
                         
                         # If that fails, try the info dictionary
                         if hasattr(ticker_obj, 'info'):
-                            info = ticker_obj.info
+                            info: Dict[str, Union[float, str, int, None]] = ticker_obj.info
                             if 'regularMarketPrice' in info and info['regularMarketPrice'] is not None:
                                 ticker_prices[ticker] = info['regularMarketPrice']
                                 st.success(f"Retrieved market price for {ticker}")
