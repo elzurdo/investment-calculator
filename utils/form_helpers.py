@@ -142,16 +142,21 @@ def sequential_portfolio_form(use_realtime_prices: bool, currency_symbol: str) -
         
         # Show "Add another stock?" prompt if needed
         if st.session_state.show_add_another:
+            # Show success message in main area
             st.success(f"Added {values[0]} to portfolio!")
-            col1, col2 = st.columns([1, 3])
-            with col1:
-                if st.button("Add Another Stock"):
-                    # Reset state to show the form again
-                    st.session_state.form_submitted = False
-                    st.session_state.show_add_another = False
-                    # Return the values but reset the submission marker to False to avoid 
-                    # double-counting the submission
-                    return values[0], values[1], values[2], values[3], False
+            
+            # Add the "Add Another Stock" button to the sidebar
+            st.sidebar.markdown("### Portfolio Actions")
+            if st.sidebar.button("Add Another Stock", key="add_another_sidebar"):
+                # Reset state to show the form again
+                st.session_state.form_submitted = False
+                st.session_state.show_add_another = False
+                # Return the values but reset the submission marker to False to avoid 
+                # double-counting the submission
+                return values[0], values[1], values[2], values[3], False
+            
+            # Add a small divider for visual separation in sidebar
+            st.sidebar.markdown("---")
             
         # Return the values once, then reset
         st.session_state.form_submitted = False
