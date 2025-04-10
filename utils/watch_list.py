@@ -32,6 +32,42 @@ def show_watch_list_tab(ticker_prices, use_realtime_prices, currency_symbol):
     
     # Upload new watch list
     uploaded_watch_list = st.file_uploader("Upload a new watch list file", type=["json", "csv"])
+    
+    # Add formatting help expander
+    with st.expander("Read about correct file formatting"):
+        st.markdown("""
+        ### JSON Format
+        Your JSON file should be an array of ticker objects, each with:
+        - `ticker`: The stock symbol (required)
+        - `historical_data`: Array of price points (optional)
+        
+        Example:
+        ```json
+        [
+          {
+            "ticker": "AAPL",
+            "historical_data": [
+              {
+                "date": "2022-01-01",
+                "value": 159.22
+              }
+            ]
+          }
+        ]
+        ```
+        
+        ### CSV Format
+        Your CSV file should have at least a column named 'ticker' with stock symbols.
+        
+        Example:
+        ```
+        ticker
+        AAPL
+        MSFT
+        GOOGL
+        ```
+        """)
+    
     if uploaded_watch_list:
         file_extension = uploaded_watch_list.name.split('.')[-1].lower()
         watch_list_name = st.text_input("Watch List Name", value=uploaded_watch_list.name.split('.')[0])
