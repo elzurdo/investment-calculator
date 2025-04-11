@@ -7,7 +7,7 @@ from utils.file_operations import load_file_if_exists
 from utils.watch_list import show_watch_list_tab
 
 # Import app components
-from app_components.portfolio_loader import load_portfolio
+from app_components.portfolio_loader import load_portfolio, create_sample_portfolio
 from app_components.price_manager import get_stock_prices
 from app_components.ui_renderer import render_header, render_sidebar
 from utils.portfolio_display import display_portfolio_summary
@@ -48,6 +48,42 @@ def main() -> None:
     # Get stock prices if portfolio exists
     if portfolio:
         ticker_prices = get_stock_prices(portfolio, use_realtime_prices)
+    
+    # Check if we need to show the portfolio selection options
+    if not portfolio:
+        st.markdown("### You don't have a portfolio yet. How would you like to proceed?")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("📝 Add stocks manually", use_container_width=True):
+                st.session_state.portfolio_option = "manual"
+                st.rerun()
+                
+        with col2:
+            if st.button("🚀 Load sample portfolio", use_container_width=True):
+                st.session_state.use_sample_portfolio = True
+                st.rerun()
+        
+        st.markdown("---")
+        
+        # If no choice made yet, show descriptive information
+        if "portfolio_option" not in st.session_state and "use_sample_portfolio" not in st.session_state:
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("#### Manual Entry")
+                st.markdown("""
+                * Add stocks one by one
+                * Set your own prices or use real-time data
+                * Build your portfolio step by step
+                """)
+            
+            with col2:
+                st.markdown("#### Sample Portfolio")
+                st.markdown("""
+                * Start with pre-populated stocks
+                * See how the app works immediately
+                * Modify the sample as needed
+                """)
     
     # Always create tabs - whether portfolio exists or not
     if portfolio and portfolio_source == "file":

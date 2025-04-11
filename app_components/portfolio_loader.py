@@ -3,11 +3,22 @@ from utils.file_operations import load_file_if_exists, load_portfolio_from_json
 from utils.form_helpers import explain_portfolio_upload_format, handle_portfolio_file_upload
 from utils.portfolio_display import display_portfolio_summary
 
+def create_sample_portfolio():
+    """
+    Create and return a sample portfolio for demonstration purposes
+    """
+    return [
+        {"ticker": "AAPL", "quantity": 10, "price": 175.25, "whole_units_only": True},
+        {"ticker": "MSFT", "quantity": 5, "price": 320.50, "whole_units_only": True},
+        {"ticker": "GOOGL", "quantity": 2, "price": 2805.12, "whole_units_only": False},
+        {"ticker": "AMZN", "quantity": 3.5, "whole_units_only": False}
+    ]
+
 def load_portfolio():
     """
     Load portfolio data from file or session state
     Returns:
-        tuple: (portfolio_data, source) where source is 'file' or 'manual'
+        tuple: (portfolio_data, source) where source is 'file', 'manual', or 'sample'
     """
     # Check if sample_portfolio.json exists
     sample_portfolio_path = "sample_portfolio.json"
@@ -19,6 +30,14 @@ def load_portfolio():
     # Initialize session state if needed
     if "portfolio" not in st.session_state:
         st.session_state.portfolio = []
+    
+    # Check if user selected to use sample portfolio
+    if "use_sample_portfolio" in st.session_state and st.session_state.use_sample_portfolio:
+        sample_portfolio = create_sample_portfolio()
+        st.session_state.portfolio = sample_portfolio
+        # Reset the flag after loading
+        st.session_state.use_sample_portfolio = False
+        return sample_portfolio, "sample"
     
     return st.session_state.portfolio, "manual"
 
