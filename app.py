@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Tuple, Any, Union
 # Import utility modules
 from utils.file_operations import load_file_if_exists
 from utils.watch_list import show_watch_list_tab
+from utils.trade_planning import display_trade_planning
 
 # Import app components
 from app_components.portfolio_loader import load_portfolio, create_sample_portfolio
@@ -27,6 +28,12 @@ def buy_me_coffee_widget():
         height=600
     )
 
+def show_trade_planning(ticker_prices, use_realtime_prices, currency_symbol):
+    """Handle the Trade Planning subtab UI"""
+    # Call the new dedicated trade planning function
+    portfolio, _ = load_portfolio()  # Get the current portfolio
+    display_trade_planning(portfolio, ticker_prices, currency_symbol)
+
 def main() -> None:
     # Render page header
     render_header()
@@ -35,9 +42,6 @@ def main() -> None:
     settings = render_sidebar()
     currency_symbol = settings["currency_symbol"]
     use_realtime_prices = settings["use_realtime_prices"]
-    
-    # Portfolio input section
-    st.header("Current Portfolio")
     
     # Load portfolio data
     portfolio, portfolio_source = load_portfolio()
@@ -85,33 +89,33 @@ def main() -> None:
                 * Modify the sample as needed
                 """)
     
-    # Always create tabs - whether portfolio exists or not
-    if portfolio and portfolio_source == "file":
-        # File-based portfolio
-        portfolio_tab, watch_list_tab, about_tab = st.tabs(["Portfolio Summary", "Watch Lists", "About"])
+    # Create consistent top-level tabs regardless of portfolio source
+    portfolio_tab, watch_list_tab, about_tab = st.tabs(["Portfolio", "Watch Lists", "About"])
+    
+    with portfolio_tab:
+        # Create subtabs for the Portfolio section
+        summary_tab, upload_tab, trade_planning_tab = st.tabs(["Summary", "Upload", "Trade Planning"])
         
-        with portfolio_tab:
-            display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_real_time_pricing=use_realtime_prices)
-            
-        with watch_list_tab:
-            show_watch_list_tab(ticker_prices, use_realtime_prices, currency_symbol)
-    else:
-        # Manual portfolio input or no portfolio loaded
-        portfolio_tab, portfolio_json_tab, watch_list_tab, about_tab = st.tabs(["Portfolio Summary", "Portfolio Upload", "Watch Lists", "About"])
-        
-        with portfolio_tab:
+        with summary_tab:
             # Handle manual portfolio input
-            portfolio = handle_manual_portfolio_input(ticker_prices, use_realtime_prices, currency_symbol)
+            if portfolio_source != "file":
+                portfolio = handle_manual_portfolio_input(ticker_prices, use_realtime_prices, currency_symbol)
             
-            # Display current manual portfolio
+            # Display current portfolio
             if portfolio:
-                display_current_portfolio(portfolio, ticker_prices, currency_symbol)
+                if portfolio_source == "file":
+                    display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_real_time_pricing=use_realtime_prices)
+                else:
+                    display_current_portfolio(portfolio, ticker_prices, currency_symbol)
         
-        with portfolio_json_tab:
+        with upload_tab:
             handle_portfolio_upload(ticker_prices, currency_symbol)
-        
-        with watch_list_tab:
-            show_watch_list_tab(ticker_prices, use_realtime_prices, currency_symbol)
+            
+        with trade_planning_tab:
+            show_trade_planning(ticker_prices, use_realtime_prices, currency_symbol)
+    
+    with watch_list_tab:
+        show_watch_list_tab(ticker_prices, use_realtime_prices, currency_symbol)
 
     with about_tab:
         st.markdown("""
