@@ -22,13 +22,16 @@ def get_stock_prices(portfolio, use_realtime_prices=False):
             ticker_symbols = " ".join(tickers)
             ticker_data = yf.Tickers(ticker_symbols)
             
+            # TODO: Should update for the hour. E.g, Monday morning before market is open still shows the previous close on Friday and hence no difference. Should show Thursday close.
             # Get previous business day for closing prices
             today = datetime.now()
             days_to_subtract = 1
             if today.weekday() == 0:  # Monday
                 days_to_subtract = 3  # Go back to Friday
+            elif today.weekday() == 5:  # Saturday
+                days_to_subtract = 2  # Go back to Thursday (because values are of closing on Friday)
             elif today.weekday() == 6:  # Sunday
-                days_to_subtract = 2  # Go back to Friday
+                days_to_subtract = 3  # Go back to Thursday (because values are of closing on Friday)
                 
             previous_business_day = (today - timedelta(days=days_to_subtract)).strftime('%Y-%m-%d')
             
