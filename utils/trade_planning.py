@@ -51,50 +51,47 @@ def display_trade_planning(portfolio, ticker_prices, currency_symbol):
             else:
                 st.warning(f"Target allocation in {sample_trade_plan_path} sums to {total_allocation}%, not 100%")
     else:
-        plan_tab, plan_json_tab = st.tabs(["Portfolio Summary", "Portfolio Upload"])
+        available_funds = st.number_input(f"Available Funds ({currency_symbol})", 
+                                            min_value=0.0, step=100.0, value=1000.0)
         
-        with plan_tab:
-            available_funds = st.number_input(f"Available Funds ({currency_symbol})", 
-                                             min_value=0.0, step=100.0, value=1000.0)
-            
-            st.subheader("Target Distribution (%)")
-            
-            # Calculate current distribution
-            distribution = calculate_current_distribution(portfolio, ticker_prices)
-            
-            # Create columns for target allocation input
-            cols = st.columns(min(4, len(portfolio)))
-            for i, item in enumerate(portfolio):
-                ticker = item["ticker"]
-                col_idx = i % 4
-                with cols[col_idx]:
-                    current_pct = distribution.get(ticker, 0)
-                    target_distribution[ticker] = st.number_input(
-                        f"{ticker}", 
-                        min_value=0.0, 
-                        max_value=100.0, 
-                        value=float(f"{current_pct:.1f}"),
-                        step=0.1,
-                        key=f"target_{ticker}"
-                    )
-            
-            # Validate total is 100%
-            total_allocation = sum(target_distribution.values())
-            st.metric("Total Allocation", f"{total_allocation:.1f}%", 
-                     delta=f"{total_allocation - 100:.1f}%" if total_allocation != 100 else None)
-            
-            # Define threshold for what's considered "close" to 100%
-            threshold = 0.5  # ±0.5%
-            
-            if total_allocation != 100:
-                if abs(total_allocation - 100) <= threshold:
-                    target_distribution = _adjust_allocation_to_100(target_distribution, total_allocation)
-                    st.info(f"Allocation was {total_allocation:.2f}% and has been automatically adjusted to 100%. "
-                           f"This small correction ensures optimal trade calculations.")
-                else:
-                    st.warning("Target allocation should sum to 100%")
+        st.subheader("Target Distribution (%)")
         
-        with plan_json_tab:
+        # Calculate current distribution
+        distribution = calculate_current_distribution(portfolio, ticker_prices)
+        
+        # Create columns for target allocation input
+        cols = st.columns(min(4, len(portfolio)))
+        for i, item in enumerate(portfolio):
+            ticker = item["ticker"]
+            col_idx = i % 4
+            with cols[col_idx]:
+                current_pct = distribution.get(ticker, 0)
+                target_distribution[ticker] = st.number_input(
+                    f"{ticker}", 
+                    min_value=0.0, 
+                    max_value=100.0, 
+                    value=float(f"{current_pct:.1f}"),
+                    step=0.1,
+                    key=f"target_{ticker}"
+                )
+        
+        # Validate total is 100%
+        total_allocation = sum(target_distribution.values())
+        st.metric("Total Allocation", f"{total_allocation:.1f}%", 
+                    delta=f"{total_allocation - 100:.1f}%" if total_allocation != 100 else None)
+        
+        # Define threshold for what's considered "close" to 100%
+        threshold = 0.5  # ±0.5%
+        
+        if total_allocation != 100:
+            if abs(total_allocation - 100) <= threshold:
+                target_distribution = _adjust_allocation_to_100(target_distribution, total_allocation)
+                st.info(f"Allocation was {total_allocation:.2f}% and has been automatically adjusted to 100%. "
+                        f"This small correction ensures optimal trade calculations.")
+            else:
+                st.warning("Target allocation should sum to 100%")
+        
+        with st.sidebar:
             plan_file = st.file_uploader("Upload trade plan JSON", type=["json"])
             if plan_file is not None:
                 plan_data = load_trade_plan_from_json(plan_file)

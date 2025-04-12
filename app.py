@@ -51,51 +51,73 @@ def main() -> None:
     
     # Get stock prices if portfolio exists
     if portfolio:
+        # TODO: within get_stock_prices, snackbar if successfully loaded
         ticker_prices = get_stock_prices(portfolio, use_realtime_prices)
-    
-    # Check if we need to show the portfolio selection options
-    if not portfolio:
-        st.markdown("### You don't have a portfolio yet. How would you like to proceed?")
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            if st.button("📝 Add stocks manually", use_container_width=True):
-                st.session_state.portfolio_option = "manual"
-                st.rerun()
-                
-        with col2:
-            if st.button("🚀 Load sample portfolio", use_container_width=True):
-                st.session_state.use_sample_portfolio = True
-                st.rerun()
-        
-        st.markdown("---")
-        
-        # If no choice made yet, show descriptive information
-        if "portfolio_option" not in st.session_state and "use_sample_portfolio" not in st.session_state:
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown("#### Manual Entry")
-                st.markdown("""
-                * Add stocks one by one
-                * Set your own prices or use real-time data
-                * Build your portfolio step by step
-                """)
-            
-            with col2:
-                st.markdown("#### Sample Portfolio")
-                st.markdown("""
-                * Start with pre-populated stocks
-                * See how the app works immediately
-                * Modify the sample as needed
-                """)
-    
+    else:
+        with st.sidebar:
+            handle_portfolio_upload(ticker_prices, currency_symbol)
+
     # Create consistent top-level tabs regardless of portfolio source
     portfolio_tab, watch_list_tab, about_tab = st.tabs(["Portfolio", "Watch Lists", "About"])
-    
+
     with portfolio_tab:
-        # Create subtabs for the Portfolio section
-        summary_tab, upload_tab, trade_planning_tab = st.tabs(["Summary", "Upload", "Trade Planning"])
+        st.markdown("## Portfolio")
+
+        # Check if we need to show the portfolio selection options
+        if not portfolio:
+            st.markdown("### To start we need a portfolio. How would you like to proceed?")
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                if st.button("📄 Upload portfolio", use_container_width=True):
+                    st.session_state.portfolio_option = "upload"
+                    # Set tab index to focus on the upload tab when rerunning
+                    st.session_state.active_portfolio_subtab = "Upload"
+                    st.rerun()
+                    
+            with col2:
+                if st.button("📝 Add stocks manually", use_container_width=True):
+                    st.session_state.portfolio_option = "manual"
+                    st.rerun()
+                    
+            with col3:
+                if st.button("🚀 Load sample portfolio", use_container_width=True):
+                    st.session_state.use_sample_portfolio = True
+                    st.rerun()
+            
+            st.markdown("---")
+            
+            # If no choice made yet, show descriptive information
+            if "portfolio_option" not in st.session_state and "use_sample_portfolio" not in st.session_state:
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.markdown("#### Upload Portfolio")
+                    st.markdown("""
+                    * In the side bar upload an existing portfolio file
+                    * JSON format with your stocks
+                    * Quick way to load your data
+                    """)
+                
+                with col2:
+                    st.markdown("#### Manual Entry")
+                    st.markdown("""
+                    * Add stocks one by one
+                    * Set your own prices or use real-time data
+                    * Build your portfolio step by step
+                    """)
+                
+                with col3:
+                    st.markdown("#### Sample Portfolio")
+                    st.markdown("""
+                    * Start with pre-populated stocks
+                    * See how the app works immediately
+                    * Modify the sample as needed
+                    """)
         
+        
+        # Create subtabs for the Portfolio section
+        summary_tab, trade_planning_tab = st.tabs(["Summary", "Trade Planning"])
+
         with summary_tab:
             # Handle manual portfolio input
             if portfolio_source != "file":
@@ -107,9 +129,6 @@ def main() -> None:
                     display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_real_time_pricing=use_realtime_prices)
                 else:
                     display_current_portfolio(portfolio, ticker_prices, currency_symbol)
-        
-        with upload_tab:
-            handle_portfolio_upload(ticker_prices, currency_symbol)
             
         with trade_planning_tab:
             show_trade_planning(ticker_prices, use_realtime_prices, currency_symbol)
