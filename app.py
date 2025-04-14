@@ -1,9 +1,7 @@
 import streamlit as st
-import time
 from typing import Dict, List, Optional, Tuple, Any, Union
 
 # Import utility modules
-from utils.file_operations import load_file_if_exists
 from utils.watch_list import show_watch_list_tab
 from utils.trade_planning import display_trade_planning
 
@@ -72,7 +70,9 @@ def main() -> None:
                 if st.button("📄 Upload portfolio", use_container_width=True):
                     st.session_state.portfolio_option = "upload"
                     # Set tab index to focus on the upload tab when rerunning
-                    st.session_state.active_portfolio_subtab = "Upload"
+                    # TODO: rename active_portfolio to portfolio_upload
+                    # TODO: no need for a button here. Or if there is it generates the uploading in the sidebar. Or immediately under.
+                    st.session_state.active_portfolio = "Upload"
                     st.rerun()
                     
             with col2:
@@ -88,7 +88,7 @@ def main() -> None:
             st.markdown("---")
             
             # If no choice made yet, show descriptive information
-            if "portfolio_option" not in st.session_state and "use_sample_portfolio" not in st.session_state:
+            if "portfolio_option" not in st.session_state and "use_sample_portfolio" not in st.session_state and "active_portfolio" not in st.session_state:
                 col1, col2, col3 = st.columns(3)
                 with col1:
                     st.markdown("#### Upload Portfolio")
@@ -115,23 +115,26 @@ def main() -> None:
                     """)
         
         
-        # Create subtabs for the Portfolio section
-        summary_tab, trade_planning_tab = st.tabs(["Summary", "Trade Planning"])
+        
+        # If no choice made yet, show descriptive information
+        if "portfolio_option" in st.session_state or "use_sample_portfolio" in st.session_state or "active_portfolio" in st.session_state:
+            # Create subtabs for the Portfolio section
+            summary_tab, trade_planning_tab = st.tabs(["Summary", "Trade Planning"])
 
-        with summary_tab:
-            # Handle manual portfolio input
-            if portfolio_source != "file":
-                portfolio = handle_manual_portfolio_input(ticker_prices, use_realtime_prices, currency_symbol)
-            
-            # Display current portfolio
-            if portfolio:
-                if portfolio_source == "file":
-                    display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_real_time_pricing=use_realtime_prices)
-                else:
-                    display_current_portfolio(portfolio, ticker_prices, currency_symbol)
-            
-        with trade_planning_tab:
-            show_trade_planning(ticker_prices, use_realtime_prices, currency_symbol)
+            with summary_tab:
+                # Handle manual portfolio input
+                if portfolio_source != "file":
+                    portfolio = handle_manual_portfolio_input(ticker_prices, use_realtime_prices, currency_symbol)
+                
+                # Display current portfolio
+                if portfolio:
+                    if portfolio_source == "file":
+                        display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_real_time_pricing=use_realtime_prices)
+                    else:
+                        display_current_portfolio(portfolio, ticker_prices, currency_symbol)
+                
+            with trade_planning_tab:
+                show_trade_planning(ticker_prices, use_realtime_prices, currency_symbol)
     
     with watch_list_tab:
         show_watch_list_tab(ticker_prices, use_realtime_prices, currency_symbol)
