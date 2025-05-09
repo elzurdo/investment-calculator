@@ -2,9 +2,13 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
+from curl_cffi import requests
 
 # Import the mutual fund detection function
 from utils.portfolio_display import is_mutual_fund
+
+  
+session = requests.Session(impersonate="chrome")
 
 @st.cache_data(ttl=300)  # Cache for 5 minutes
 def get_stock_prices(portfolio, use_realtime_prices=False):
@@ -20,7 +24,7 @@ def get_stock_prices(portfolio, use_realtime_prices=False):
         try:
             # Get data for all tickers at once
             ticker_symbols = " ".join(tickers)
-            ticker_data = yf.Tickers(ticker_symbols)
+            ticker_data = yf.Tickers(ticker_symbols, session=session)
             
             # TODO: Should update for the hour. E.g, Monday morning before market is open still shows the previous close on Friday and hence no difference. Should show Thursday close.
             # Get previous business day for closing prices
