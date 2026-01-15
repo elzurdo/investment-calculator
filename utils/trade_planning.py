@@ -156,8 +156,17 @@ def display_trade_planning(portfolio, ticker_prices, currency_symbol):
             # Show projected portfolio as table and chart
             col1, col2 = st.columns([2, 3])
             with col1:
-                proj_data = {"Ticker": list(projected_distribution.keys()), 
-                            "Percentage": [f"{val:.2f}%" for val in projected_distribution.values()]}
+                tickers = list(projected_distribution.keys())
+                percentages = list(projected_distribution.values())
+                target_pcts = [target_distribution.get(ticker, 0) for ticker in tickers]
+                differences = [percentages[i] - target_pcts[i] for i in range(len(tickers))]
+                
+                proj_data = {
+                    "Ticker": tickers, 
+                    "Percentage": [f"{val:.2f}%" for val in percentages],
+                    "Target %": [f"{val:.2f}%" for val in target_pcts],
+                    "Diff from Target": [f"{val:+.2f}%" for val in differences]
+                }
                 st.dataframe(pd.DataFrame(proj_data))
             
             with col2:
