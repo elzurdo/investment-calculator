@@ -35,16 +35,32 @@ To use this feature:
 
 ## Requirements
 
-This application requires the following packages:
+This application requires Python 3.10+ and the following packages:
 - streamlit>=1.22.0
 - pandas>=1.5.0
 - numpy>=1.22.0
 - matplotlib>=3.5.0
 - plotly>=5.10.0
 - yfinance>=0.2.18
+- curl_cffi>=0.9.0
 
-Install dependencies using:
+## Setup
+
+### Create and Activate Virtual Environment
+
 ```bash
+# Create virtual environment (using Python 3.10)
+python3.10 -m venv .venv
+
+# Activate the virtual environment
+source .venv/bin/activate
+```
+
+### Install Dependencies
+
+```bash
+pip install --upgrade pip
+pip install curl_cffi --prefer-binary
 pip install -r requirements.txt
 ```
 

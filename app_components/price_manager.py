@@ -10,15 +10,19 @@ from utils.portfolio_display import is_mutual_fund
   
 session = requests.Session(impersonate="chrome")
 
+def _get_ticker_tuple(portfolio):
+    """Convert portfolio to a hashable tuple for caching."""
+    return tuple((item["ticker"], item["quantity"]) for item in portfolio)
+
 @st.cache_data(ttl=300)  # Cache for 5 minutes
-def get_stock_prices(portfolio, use_realtime_prices=False):
+def _fetch_stock_prices_cached(ticker_tuple, use_realtime_prices=False):
     """
     Get current stock prices for the portfolio.
     If use_realtime_prices is True, fetch real-time prices and previous closing prices.
     Otherwise, use sample data.
     """
     ticker_prices = {}
-    tickers = [item["ticker"] for item in portfolio]
+    tickers = [item[0] for item in ticker_tuple]  # Extract ticker symbols from tuple
     
     if use_realtime_prices:
         try:
@@ -85,7 +89,7 @@ def get_stock_prices(portfolio, use_realtime_prices=False):
                         # Fallback to default price if real-time price not available
                         ticker_prices[ticker] = 100.0  # Default price
                 except Exception as e:
-                    st.warning(f"Error fetching data for {ticker}: {e}")
+                    st.warning(f"Error fetching data for {ticker}: {e}, using default price 100")
                     ticker_prices[ticker] = 100.0  # Default price
             
             st.success("Using real-time market data")
@@ -103,3 +107,12 @@ def get_stock_prices(portfolio, use_realtime_prices=False):
         st.info("Using sample data (all prices set to $100.00)")
     
     return ticker_prices
+
+
+def get_stock_prices(portfolio, use_realtime_prices=False):
+    """
+    Wrapper function to get stock prices with proper caching.
+    Converts portfolio to a hashable format for the cached function.
+    """
+    ticker_tuple = _get_ticker_tuple(portfolio)
+    return _fetch_stock_prices_cached(ticker_tuple, use_realtime_prices)
