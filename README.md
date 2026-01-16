@@ -91,11 +91,13 @@ streamlit run app.py
   {
     "ticker": "VDIGX",
     "quantity": 25.75,
-    "whole_units_only": false
+    "whole_units_only": false,
+    "expense_ratio": 0.22
   }
 ]
 ```
 Note: The "price" field is optional. If not provided, a random price will be assigned.
+The "expense_ratio" field is optional (in percent, e.g., 0.22 means 0.22%). If not provided, "N/A" will be displayed. Individual stocks don't have expense ratios.
 
 ### Trade Plan JSON:
 ```json

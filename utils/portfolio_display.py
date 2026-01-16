@@ -40,11 +40,16 @@ def display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_rea
         value = quantity * price
         total_value += value
         
+        # Get expense ratio if available
+        expense_ratio = item.get("expense_ratio")
+        expense_ratio_display = f"{expense_ratio:.2f}%" if expense_ratio is not None else "N/A"
+        
         portfolio_item = {
             "Ticker": ticker,
             "Quantity": quantity,
             "Price": f"{currency_symbol}{price:,.2f}",
             "Value": f"{currency_symbol}{value:,.2f}",
+            "Expense Ratio": expense_ratio_display,
             "Type": "Whole Units Only" if item["whole_units_only"] else "Fractional"
         }
         
