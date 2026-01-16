@@ -59,6 +59,7 @@ def display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_rea
                 # If previous closing price isn't available, show N/A for day change
                 portfolio_item["Day Change"] = "N/A"
                 portfolio_item["Day Change (%)"] = "N/A"
+                portfolio_item["Value Change"] = "N/A"
             else:
                 # Special handling for mutual funds which update once per day
                 if is_mutual_fund(ticker):
@@ -66,6 +67,7 @@ def display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_rea
                     if price == prev_close:
                         portfolio_item["Day Change"] = f"<span style='color:gray'>NAV updates EOD</span>"
                         portfolio_item["Day Change (%)"] = f"<span style='color:gray'>-</span>"
+                        portfolio_item["Value Change"] = f"<span style='color:gray'>-</span>"
                         
                         # Still add to previous value for total calculation
                         total_previous_value += quantity * prev_close
@@ -73,6 +75,7 @@ def display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_rea
                         # Calculate day change if price has updated
                         day_change = price - prev_close
                         day_change_percent = (day_change / prev_close * 100) if prev_close != 0 else 0.0
+                        value_change = day_change * quantity
                         
                         # Calculate total previous value for portfolio day change
                         total_previous_value += quantity * prev_close
@@ -83,10 +86,16 @@ def display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_rea
                         
                         portfolio_item["Day Change"] = f"<span style='color:{day_change_color}'>{day_change_arrow} {currency_symbol}{abs(day_change):,.2f}</span>"
                         portfolio_item["Day Change (%)"] = f"<span style='color:{day_change_color}'>{day_change_arrow} {abs(day_change_percent):,.2f}%</span>"
+                        # Value change with color only if non-zero
+                        if value_change != 0:
+                            portfolio_item["Value Change"] = f"<span style='color:{day_change_color}'>{day_change_arrow} {currency_symbol}{abs(value_change):,.2f}</span>"
+                        else:
+                            portfolio_item["Value Change"] = f"{currency_symbol}0.00"
                 else:
                     # Regular handling for stocks
                     day_change = price - prev_close
                     day_change_percent = (day_change / prev_close * 100) if prev_close != 0 else 0.0
+                    value_change = day_change * quantity
                     
                     # Calculate total previous value for portfolio day change
                     total_previous_value += quantity * prev_close
@@ -97,6 +106,11 @@ def display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_rea
                     
                     portfolio_item["Day Change"] = f"<span style='color:{day_change_color}'>{day_change_arrow} {currency_symbol}{abs(day_change):,.2f}</span>"
                     portfolio_item["Day Change (%)"] = f"<span style='color:{day_change_color}'>{day_change_arrow} {abs(day_change_percent):,.2f}%</span>"
+                    # Value change with color only if non-zero
+                    if value_change != 0:
+                        portfolio_item["Value Change"] = f"<span style='color:{day_change_color}'>{day_change_arrow} {currency_symbol}{abs(value_change):,.2f}</span>"
+                    else:
+                        portfolio_item["Value Change"] = f"{currency_symbol}0.00"
         
         portfolio_data.append(portfolio_item)
     
