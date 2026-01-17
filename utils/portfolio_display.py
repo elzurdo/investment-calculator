@@ -32,6 +32,7 @@ def display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_rea
     portfolio_data = []
     total_value = 0
     total_previous_value = 0
+    total_annual_fee = 0
     
     for item in portfolio:
         ticker = item["ticker"]
@@ -44,12 +45,21 @@ def display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_rea
         expense_ratio = item.get("expense_ratio")
         expense_ratio_display = f"{expense_ratio:.2f}%" if expense_ratio is not None else "N/A"
         
+        # Calculate annual fee (expense ratio × value)
+        if expense_ratio is not None:
+            annual_fee = value * (expense_ratio / 100)
+            annual_fee_display = f"{currency_symbol}{annual_fee:,.2f}"
+            total_annual_fee += annual_fee
+        else:
+            annual_fee_display = "N/A"
+        
         portfolio_item = {
             "Ticker": ticker,
             "Quantity": quantity,
             "Price": f"{currency_symbol}{price:,.2f}",
             "Value": f"{currency_symbol}{value:,.2f}",
             "Expense Ratio": expense_ratio_display,
+            "Annual Fee": annual_fee_display,
             "Type": "Whole Units Only" if item["whole_units_only"] else "Fractional"
         }
         
@@ -123,6 +133,11 @@ def display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_rea
     
     # Display total portfolio value
     st.markdown(f"#### Total Portfolio Value: {currency_symbol}{total_value:,.2f}")
+    
+    # Display total annual fee and weighted average expense ratio
+    if total_annual_fee > 0:
+        weighted_avg_expense_ratio = (total_annual_fee / total_value * 100) if total_value > 0 else 0
+        st.markdown(f"#### Total Annual Fee: {currency_symbol}{total_annual_fee:,.2f} ({weighted_avg_expense_ratio:.2f}%)")
     
     # If real-time pricing is enabled, display total day change
     if use_real_time_pricing and total_previous_value > 0:

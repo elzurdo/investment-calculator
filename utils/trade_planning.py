@@ -171,6 +171,9 @@ def display_trade_planning(portfolio, ticker_prices, currency_symbol):
             
             with col2:
                 st.pyplot(plot_distribution(projected_distribution, "Projected Distribution"))
+            
+            # Display expense ratio comparison
+            _display_expense_ratio_comparison(portfolio, projected_portfolio, ticker_prices, currency_symbol)
         else:
             st.info("No trades needed to reach target allocation.")
 
@@ -212,7 +215,105 @@ def _calculate_projected_portfolio(portfolio, recommendations):
             projected_portfolio.append({
                 "ticker": ticker,
                 "quantity": quantity,
-                "whole_units_only": item["whole_units_only"]
+                "whole_units_only": item["whole_units_only"],
+                "expense_ratio": item.get("expense_ratio")  # Preserve expense ratio
             })
     
     return projected_portfolio
+
+
+def _calculate_expense_metrics(portfolio, ticker_prices):
+    """Calculate total value, total annual fee, and weighted average expense ratio"""
+    total_value = 0
+    total_annual_fee = 0
+    expense_ratios = {}
+    
+    for item in portfolio:
+        ticker = item["ticker"]
+        quantity = item["quantity"]
+        price = ticker_prices.get(ticker, 100.00)
+        value = quantity * price
+        total_value += value
+        
+        expense_ratio = item.get("expense_ratio")
+        expense_ratios[ticker] = expense_ratio
+        
+        if expense_ratio is not None:
+            annual_fee = value * (expense_ratio / 100)
+            total_annual_fee += annual_fee
+    
+    weighted_avg_er = (total_annual_fee / total_value * 100) if total_value > 0 else 0
+    
+    return total_value, total_annual_fee, weighted_avg_er, expense_ratios
+
+
+def _display_expense_ratio_comparison(current_portfolio, projected_portfolio, ticker_prices, currency_symbol):
+    """Display expense ratio comparison between current and projected portfolio"""
+    st.subheader("Expense Ratio Comparison")
+    
+    # Calculate metrics for current portfolio
+    current_value, current_annual_fee, current_weighted_er, current_expense_ratios = \
+        _calculate_expense_metrics(current_portfolio, ticker_prices)
+    
+    # Calculate metrics for projected portfolio
+    projected_value, projected_annual_fee, projected_weighted_er, projected_expense_ratios = \
+        _calculate_expense_metrics(projected_portfolio, ticker_prices)
+    
+    # Per-ticker comparison table
+    st.markdown("#### Per-Ticker Expense Ratios")
+    
+    # Get all tickers from both portfolios
+    all_tickers = set(current_expense_ratios.keys()) | set(projected_expense_ratios.keys())
+    
+    comparison_data = []
+    for ticker in sorted(all_tickers):
+        current_er = current_expense_ratios.get(ticker)
+        projected_er = projected_expense_ratios.get(ticker)
+        
+        current_er_display = f"{current_er:.2f}%" if current_er is not None else "N/A"
+        projected_er_display = f"{projected_er:.2f}%" if projected_er is not None else "N/A"
+        
+        comparison_data.append({
+            "Ticker": ticker,
+            "Expense Ratio": current_er_display
+        })
+    
+    st.dataframe(pd.DataFrame(comparison_data))
+    
+    # Total comparison
+    st.markdown("#### Portfolio Fee Summary")
+    
+    fee_change = projected_annual_fee - current_annual_fee
+    er_change = projected_weighted_er - current_weighted_er
+    
+    # Format with color for changes
+    if fee_change != 0:
+        fee_color = "green" if fee_change < 0 else "red"  # Lower fees = green
+        fee_arrow = "↓" if fee_change < 0 else "↑"
+        fee_change_display = f"<span style='color:{fee_color}'>{fee_arrow} {currency_symbol}{abs(fee_change):,.2f}</span>"
+    else:
+        fee_change_display = "No change"
+    
+    if er_change != 0:
+        er_color = "green" if er_change < 0 else "red"  # Lower ER = green
+        er_arrow = "↓" if er_change < 0 else "↑"
+        er_change_display = f"<span style='color:{er_color}'>{er_arrow} {abs(er_change):.2f}%</span>"
+    else:
+        er_change_display = "No change"
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("**Current**")
+        st.markdown(f"Total Annual Fee: {currency_symbol}{current_annual_fee:,.2f}")
+        st.markdown(f"Weighted Avg ER: {current_weighted_er:.2f}%")
+    
+    with col2:
+        st.markdown("**Projected**")
+        st.markdown(f"Total Annual Fee: {currency_symbol}{projected_annual_fee:,.2f}")
+        st.markdown(f"Weighted Avg ER: {projected_weighted_er:.2f}%")
+    
+    with col3:
+        st.markdown("**Change**")
+        st.markdown(f"Annual Fee: {fee_change_display}", unsafe_allow_html=True)
+        st.markdown(f"Weighted Avg ER: {er_change_display}", unsafe_allow_html=True)
