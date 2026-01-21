@@ -2,6 +2,7 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
+import pytz
 from curl_cffi import requests
 
 # Import the mutual fund detection function
@@ -9,6 +10,50 @@ from utils.portfolio_display import is_mutual_fund
 
   
 session = requests.Session(impersonate="chrome")
+
+
+def is_market_open():
+    """
+    Check if the US stock market is currently open.
+    Market hours: 9:30 AM - 4:00 PM Eastern Time, Monday-Friday
+    Returns: (is_open: bool, market_time: datetime)
+    """
+    eastern = pytz.timezone('US/Eastern')
+    now_eastern = datetime.now(eastern)
+    
+    # Check if it's a weekend
+    if now_eastern.weekday() >= 5:  # Saturday = 5, Sunday = 6
+        return False, now_eastern
+    
+    # Check if within market hours (9:30 AM - 4:00 PM ET)
+    market_open = now_eastern.replace(hour=9, minute=30, second=0, microsecond=0)
+    market_close = now_eastern.replace(hour=16, minute=0, second=0, microsecond=0)
+    
+    is_open = market_open <= now_eastern <= market_close
+    return is_open, now_eastern
+
+
+def get_comparison_dates(market_time):
+    """
+    Determine the correct dates for price comparison based on market status.
+    
+    When market is OPEN:
+      - current_price = live price (or most recent)
+      - prev_close = yesterday's close (or Friday's if Monday)
+    
+    When market is CLOSED:
+      - current_price = last trading day's close
+      - prev_close = day before last trading day's close
+    
+    Returns: (start_date, end_date, num_days_needed) for historical data fetch
+    """
+    # We need enough days of history to handle weekends and holidays
+    # Fetch 10 days to be safe
+    end_date = market_time.date() + timedelta(days=1)  # Include today
+    start_date = market_time.date() - timedelta(days=10)
+    
+    return start_date, end_date, 10
+
 
 def _get_ticker_tuple(portfolio):
     """Convert portfolio to a hashable tuple for caching."""
@@ -20,6 +65,10 @@ def _fetch_stock_prices_cached(ticker_tuple, use_realtime_prices=False):
     Get current stock prices for the portfolio.
     If use_realtime_prices is True, fetch real-time prices and previous closing prices.
     Otherwise, use sample data.
+    
+    Day Change Logic:
+    - When market is OPEN: Compare current live price to yesterday's close
+    - When market is CLOSED: Compare last trading day's close to the day before
     """
     ticker_prices = {}
     tickers = [item[0] for item in ticker_tuple]  # Extract ticker symbols from tuple
@@ -30,64 +79,75 @@ def _fetch_stock_prices_cached(ticker_tuple, use_realtime_prices=False):
             ticker_symbols = " ".join(tickers)
             ticker_data = yf.Tickers(ticker_symbols, session=session)
             
-            # TODO: Should update for the hour. E.g, Monday morning before market is open still shows the previous close on Friday and hence no difference. Should show Thursday close.
-            # Get previous business day for closing prices
-            today = datetime.now()
-            days_to_subtract = 1
-            if today.weekday() == 0:  # Monday
-                days_to_subtract = 3  # Go back to Friday
-            elif today.weekday() == 5:  # Saturday
-                days_to_subtract = 2  # Go back to Thursday (because values are of closing on Friday)
-            elif today.weekday() == 6:  # Sunday
-                days_to_subtract = 3  # Go back to Thursday (because values are of closing on Friday)
-                
-            previous_business_day = (today - timedelta(days=days_to_subtract)).strftime('%Y-%m-%d')
+            # Determine market status and get appropriate comparison dates
+            market_is_open, market_time = is_market_open()
+            start_date, end_date, _ = get_comparison_dates(market_time)
+            
+            # Display market status to user
+            if market_is_open:
+                st.info(f"🟢 Market is OPEN (Eastern Time: {market_time.strftime('%I:%M %p')})")
+            else:
+                weekday = market_time.strftime('%A')
+                st.info(f"🔴 Market is CLOSED ({weekday}, {market_time.strftime('%I:%M %p')} ET) - Showing last trading day's change")
             
             for ticker in tickers:
                 try:
-                    # Get current price
+                    # Get historical data for proper comparison
+                    hist = ticker_data.tickers[ticker].history(
+                        start=start_date.strftime('%Y-%m-%d'), 
+                        end=end_date.strftime('%Y-%m-%d')
+                    )
+                    
+                    # Get current/latest price from info
                     info = ticker_data.tickers[ticker].info
-                    current_price = info.get('regularMarketPrice', None)
+                    live_price = info.get('regularMarketPrice', None)
+                    
+                    if hist.empty or len(hist) < 2:
+                        # Not enough data, use fallback
+                        if live_price:
+                            ticker_prices[ticker] = live_price
+                            prev_close = info.get('previousClose', live_price)
+                            ticker_prices[f"{ticker}_previous_close"] = prev_close
+                        else:
+                            ticker_prices[ticker] = 100.0
+                        continue
                     
                     # Special handling for mutual funds
                     if is_mutual_fund(ticker):
-                        # For mutual funds, we need to look back further to find a different price
-                        # Get historical data for the past 10 business days
-                        end_date = today
-                        start_date = end_date - timedelta(days=10)
-                        hist = ticker_data.tickers[ticker].history(start=start_date.strftime('%Y-%m-%d'), 
-                                                                 end=end_date.strftime('%Y-%m-%d'))
+                        # For mutual funds, find the most recent two different prices
+                        # since NAV only updates once per day
+                        current_price = hist['Close'].iloc[-1]
                         
-                        if not hist.empty:
-                            # For mutual funds, use the most recent price that's different from the current price
-                            # This ensures we show a day change even if the price hasn't been updated today
-                            for i in range(1, min(len(hist), 5)):
-                                prev_close = hist['Close'].iloc[-i-1]
-                                if abs(prev_close - current_price) > 0.001:  # Found a different price
-                                    break
-                            else:
-                                # If we couldn't find a different price, use the most recent available
-                                prev_close = hist['Close'].iloc[-2] if len(hist) > 1 else current_price
-                        else:
-                            # Fallback to the value from info
-                            prev_close = info.get('previousClose', current_price)
-                    else:
-                        # Regular handling for stocks
-                        hist = ticker_data.tickers[ticker].history(start=previous_business_day, end=today.strftime('%Y-%m-%d'))
-                        if not hist.empty:
-                            prev_close = hist['Close'].iloc[0]
-                        else:
-                            # Fallback to get previous close from info
-                            prev_close = info.get('previousClose', None)
-                    
-                    if current_price:
+                        # Find the previous different price
+                        prev_close = None
+                        for i in range(2, min(len(hist) + 1, 6)):
+                            candidate = hist['Close'].iloc[-i]
+                            if abs(candidate - current_price) > 0.001:
+                                prev_close = candidate
+                                break
+                        
+                        if prev_close is None:
+                            prev_close = hist['Close'].iloc[-2] if len(hist) > 1 else current_price
+                        
                         ticker_prices[ticker] = current_price
-                        # Store previous close with specific key format for use in portfolio_display.py
-                        if prev_close:
-                            ticker_prices[f"{ticker}_previous_close"] = prev_close
+                        ticker_prices[f"{ticker}_previous_close"] = prev_close
                     else:
-                        # Fallback to default price if real-time price not available
-                        ticker_prices[ticker] = 100.0  # Default price
+                        # Regular stocks
+                        if market_is_open:
+                            # Use live price vs yesterday's close
+                            current_price = live_price if live_price else hist['Close'].iloc[-1]
+                            # Previous close is the last complete trading day
+                            prev_close = hist['Close'].iloc[-1] if live_price else hist['Close'].iloc[-2]
+                        else:
+                            # Market is closed: compare last two trading days
+                            # hist[-1] is the most recent trading day's close
+                            # hist[-2] is the day before that
+                            current_price = hist['Close'].iloc[-1]
+                            prev_close = hist['Close'].iloc[-2]
+                        
+                        ticker_prices[ticker] = current_price
+                        ticker_prices[f"{ticker}_previous_close"] = prev_close
+                        
                 except Exception as e:
                     st.warning(f"Error fetching data for {ticker}: {e}, using default price 100")
                     ticker_prices[ticker] = 100.0  # Default price
