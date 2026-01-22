@@ -23,10 +23,22 @@ def is_mutual_fund(ticker):
         
     return False
 
-def display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_real_time_pricing=False):
-    """Display portfolio summary and distribution"""
+def display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_real_time_pricing=False, funds_available=None):
+    """Display portfolio summary and distribution
+    
+    Args:
+        portfolio: List of portfolio holdings
+        ticker_prices: Dictionary of ticker symbols to prices
+        currency_symbol: Currency symbol to display
+        use_real_time_pricing: Whether real-time pricing is enabled
+        funds_available: Amount of funds available to trade (optional)
+    """
     if not portfolio:
         return
+    
+    # Get funds_available from session state if not provided
+    if funds_available is None:
+        funds_available = st.session_state.get('funds_available', 0.0)
     
     # Create and display portfolio table
     portfolio_data = []
@@ -131,8 +143,14 @@ def display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_rea
     
     st.subheader("Current Holdings")
     
-    # Display total portfolio value
+    # Display total portfolio value and funds available
+    total_with_funds = total_value + funds_available
     st.markdown(f"#### Total Portfolio Value: {currency_symbol}{total_value:,.2f}")
+    
+    # Display funds available to trade
+    if funds_available > 0:
+        st.markdown(f"#### 💵 Funds Available to Trade: {currency_symbol}{funds_available:,.2f}")
+        st.markdown(f"#### 📊 Total (Portfolio + Funds): {currency_symbol}{total_with_funds:,.2f}")
     
     # Display total annual fee and weighted average expense ratio
     if total_annual_fee > 0:

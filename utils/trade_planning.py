@@ -5,29 +5,45 @@ from .data_processing import calculate_current_distribution, optimize_trades
 from .visualization import plot_distribution, create_sankey_chart
 from .file_operations import load_file_if_exists, load_trade_plan_from_json
 
-def display_trade_planning(portfolio, ticker_prices, currency_symbol):
-    """Display trade planning interface and recommendations"""
+def display_trade_planning(portfolio, ticker_prices, currency_symbol, funds_available=None):
+    """Display trade planning interface and recommendations
+    
+    Args:
+        portfolio: List of portfolio holdings
+        ticker_prices: Dictionary of ticker symbols to prices
+        currency_symbol: Currency symbol to display
+        funds_available: Funds available from portfolio (used as default if no trade plan)
+    """
     if not portfolio:
         st.info("Please add stocks to your portfolio first to use trade planning.")
         return
     
     st.header("Trade Planning")
     
+    # Get funds_available from session state if not provided
+    if funds_available is None:
+        funds_available = st.session_state.get('funds_available', 0.0)
+    
     # Check if sample_trade_plan.json exists
     sample_trade_plan_path = "sample_trade_plan.json"
     trade_plan_data = load_file_if_exists(sample_trade_plan_path)
     
     target_distribution = {}
-    available_funds = 0.0
+    available_funds = funds_available  # Start with portfolio's funds_available as default
     
     if trade_plan_data:
         st.info(f"Found {sample_trade_plan_path} file. Trade planning data is automatically loaded.")
-        available_funds = trade_plan_data.get("available_funds", 0)
+        # Trade plan available_funds overrides portfolio funds_available
+        available_funds = trade_plan_data.get("available_funds", funds_available)
         target_distribution = trade_plan_data.get("target_allocation", {})
         
-        # Display the loaded data
+        # Display the loaded data with comparison to portfolio funds
         st.subheader("Loaded Trade Plan")
-        st.write(f"Available Funds: {currency_symbol}{available_funds:,.2f}")
+        if funds_available > 0 and funds_available != available_funds:
+            st.write(f"Available Funds (from trade plan): {currency_symbol}{available_funds:,.2f}")
+            st.caption(f"💡 Portfolio has {currency_symbol}{funds_available:,.2f} available. Trade plan overrides this value.")
+        else:
+            st.write(f"Available Funds: {currency_symbol}{available_funds:,.2f}")
         
         # Display target allocation
         st.subheader("Target Distribution (%)")
@@ -51,8 +67,15 @@ def display_trade_planning(portfolio, ticker_prices, currency_symbol):
             else:
                 st.warning(f"Target allocation in {sample_trade_plan_path} sums to {total_allocation}%, not 100%")
     else:
+        # Use portfolio's funds_available as default, fallback to 1000.0 if not set
+        default_funds = funds_available if funds_available > 0 else 1000.0
+        
+        # Show info about portfolio funds if available
+        if funds_available > 0:
+            st.info(f"💵 Using funds available from portfolio: {currency_symbol}{funds_available:,.2f}")
+        
         available_funds = st.number_input(f"Available Funds ({currency_symbol})", 
-                                            min_value=0.0, step=100.0, value=1000.0)
+                                            min_value=0.0, step=100.0, value=default_funds)
         
         st.subheader("Target Distribution (%)")
         

@@ -31,8 +31,8 @@ def buy_me_coffee_widget():
 def show_trade_planning(ticker_prices, use_realtime_prices, currency_symbol):
     """Handle the Trade Planning subtab UI"""
     # Call the new dedicated trade planning function
-    portfolio, _ = load_portfolio()  # Get the current portfolio
-    display_trade_planning(portfolio, ticker_prices, currency_symbol)
+    portfolio, _, funds_available = load_portfolio()  # Get the current portfolio and funds
+    display_trade_planning(portfolio, ticker_prices, currency_symbol, funds_available)
 
 def main() -> None:
     # Render page header
@@ -43,8 +43,8 @@ def main() -> None:
     currency_symbol = settings["currency_symbol"]
     use_realtime_prices = settings["use_realtime_prices"]
     
-    # Load portfolio data
-    portfolio, portfolio_source = load_portfolio()
+    # Load portfolio data (now returns holdings, source, and funds_available)
+    portfolio, portfolio_source, funds_available = load_portfolio()
     
     # Initialize ticker_prices as an empty dict in case portfolio is empty
     ticker_prices = {}
@@ -126,7 +126,7 @@ def main() -> None:
             # Display current portfolio
             if portfolio:
                 if portfolio_source == "file":
-                    display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_real_time_pricing=use_realtime_prices)
+                    display_portfolio_summary(portfolio, ticker_prices, currency_symbol, use_real_time_pricing=use_realtime_prices, funds_available=funds_available)
                 else:
                     display_current_portfolio(portfolio, ticker_prices, currency_symbol)
             
