@@ -3,13 +3,16 @@ import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
 import pytz
-from curl_cffi import requests
+import time
+from curl_cffi import requests as curl_requests
 
 # Import the mutual fund detection function
 from utils.portfolio_display import is_mutual_fund
 
-  
-session = requests.Session(impersonate="chrome")
+
+def _create_session():
+    """Create a fresh curl_cffi session that mimics a browser."""
+    return curl_requests.Session(impersonate="chrome")
 
 
 def is_market_open():
@@ -33,31 +36,103 @@ def is_market_open():
     return is_open, now_eastern
 
 
-def get_comparison_dates(market_time):
-    """
-    Determine the correct dates for price comparison based on market status.
-    
-    When market is OPEN:
-      - current_price = live price (or most recent)
-      - prev_close = yesterday's close (or Friday's if Monday)
-    
-    When market is CLOSED:
-      - current_price = last trading day's close
-      - prev_close = day before last trading day's close
-    
-    Returns: (start_date, end_date, num_days_needed) for historical data fetch
-    """
-    # We need enough days of history to handle weekends and holidays
-    # Fetch 10 days to be safe
-    end_date = market_time.date() + timedelta(days=1)  # Include today
-    start_date = market_time.date() - timedelta(days=10)
-    
-    return start_date, end_date, 10
-
-
 def _get_ticker_tuple(portfolio):
     """Convert portfolio to a hashable tuple for caching."""
     return tuple((item["ticker"], item["quantity"]) for item in portfolio)
+
+
+def _fetch_with_retry(tickers, max_retries=3, initial_delay=3):
+    """
+    Fetch stock data with retry logic and rate limit handling.
+    Uses yf.download with a fresh session each attempt.
+    """
+    ticker_list = list(tickers)
+    delay = initial_delay
+    
+    for attempt in range(max_retries):
+        try:
+            # Create a fresh session for each attempt
+            session = _create_session()
+            
+            # Small delay before request to avoid triggering rate limits
+            if attempt > 0:
+                st.info(f"Retry attempt {attempt + 1}/{max_retries}...")
+                time.sleep(delay)
+                delay *= 2
+            
+            # Use download with session - this makes a SINGLE batch request
+            hist_data = yf.download(
+                ticker_list,
+                period="10d",
+                progress=False,
+                session=session,
+                threads=False  # Single thread to avoid rate limiting
+            )
+            
+            # Check if we got actual data (not just empty structure)
+            if hist_data.empty or len(hist_data) == 0:
+                if attempt < max_retries - 1:
+                    st.warning(f"No data returned, retrying in {delay} seconds...")
+                    continue
+                return None, "No data returned after retries"
+            
+            # Convert to dict of DataFrames per ticker
+            all_hist = {}
+            single_ticker = len(ticker_list) == 1
+            
+            for ticker in ticker_list:
+                try:
+                    if single_ticker:
+                        # Single ticker: columns are 'Open', 'High', 'Low', 'Close', etc.
+                        if 'Close' in hist_data.columns:
+                            ticker_df = hist_data[['Close']].dropna()
+                            if not ticker_df.empty:
+                                all_hist[ticker] = ticker_df
+                    else:
+                        # Multiple tickers: try both column structures
+                        # Structure 1: ('Close', 'TICKER')
+                        # Structure 2: ('TICKER', 'Close')
+                        try:
+                            if ('Close', ticker) in hist_data.columns:
+                                close_series = hist_data[('Close', ticker)].dropna()
+                            elif (ticker, 'Close') in hist_data.columns:
+                                close_series = hist_data[(ticker, 'Close')].dropna()
+                            elif 'Close' in hist_data.columns:
+                                # Flat structure with MultiIndex
+                                if hasattr(hist_data['Close'], 'columns') and ticker in hist_data['Close'].columns:
+                                    close_series = hist_data['Close'][ticker].dropna()
+                                else:
+                                    close_series = pd.Series(dtype=float)
+                            else:
+                                close_series = pd.Series(dtype=float)
+                            
+                            if not close_series.empty:
+                                all_hist[ticker] = pd.DataFrame({'Close': close_series})
+                        except (KeyError, TypeError):
+                            pass
+                except Exception:
+                    pass
+            
+            if all_hist:
+                return all_hist, None
+            else:
+                if attempt < max_retries - 1:
+                    st.warning(f"Could not parse data, retrying...")
+                    continue
+                return None, "Could not parse ticker data from response"
+                
+        except Exception as e:
+            error_msg = str(e)
+            if "Too Many Requests" in error_msg or "Rate" in error_msg:
+                if attempt < max_retries - 1:
+                    st.warning(f"Rate limited, waiting {delay} seconds before retry...")
+                    time.sleep(delay)
+                    delay *= 2
+                    continue
+            return None, error_msg
+    
+    return None, "Max retries exceeded"
+
 
 @st.cache_data(ttl=300)  # Cache for 5 minutes
 def _fetch_stock_prices_cached(ticker_tuple, use_realtime_prices=False):
@@ -75,13 +150,8 @@ def _fetch_stock_prices_cached(ticker_tuple, use_realtime_prices=False):
     
     if use_realtime_prices:
         try:
-            # Get data for all tickers at once
-            ticker_symbols = " ".join(tickers)
-            ticker_data = yf.Tickers(ticker_symbols, session=session)
-            
-            # Determine market status and get appropriate comparison dates
+            # Determine market status
             market_is_open, market_time = is_market_open()
-            start_date, end_date, _ = get_comparison_dates(market_time)
             
             # Display market status to user
             if market_is_open:
@@ -90,85 +160,88 @@ def _fetch_stock_prices_cached(ticker_tuple, use_realtime_prices=False):
                 weekday = market_time.strftime('%A')
                 st.info(f"🔴 Market is CLOSED ({weekday}, {market_time.strftime('%I:%M %p')} ET) - Showing last trading day's change")
             
+            # Fetch data with retry logic
+            all_hist, error = _fetch_with_retry(tickers)
+            
+            if error:
+                st.error(f"Failed to fetch data: {error}")
+                st.info("Falling back to sample data")
+                for ticker in tickers:
+                    ticker_prices[ticker] = 100.0
+                return ticker_prices
+            
+            if not all_hist:
+                st.warning("No data returned from Yahoo Finance")
+                for ticker in tickers:
+                    ticker_prices[ticker] = 100.0
+                return ticker_prices
+            
+            # Process each ticker's data
             for ticker in tickers:
                 try:
-                    # Get historical data for proper comparison
-                    hist = ticker_data.tickers[ticker].history(
-                        start=start_date.strftime('%Y-%m-%d'), 
-                        end=end_date.strftime('%Y-%m-%d')
-                    )
+                    if ticker not in all_hist or all_hist[ticker].empty:
+                        st.warning(f"No data for {ticker}, using default price")
+                        ticker_prices[ticker] = 100.0
+                        continue
                     
-                    # Get current/latest price from info
-                    info = ticker_data.tickers[ticker].info
-                    live_price = info.get('regularMarketPrice', None)
+                    close_prices = all_hist[ticker]['Close'].dropna()
                     
-                    if hist.empty or len(hist) < 2:
-                        # Not enough data, use fallback
-                        if live_price:
-                            ticker_prices[ticker] = live_price
-                            prev_close = info.get('previousClose', live_price)
-                            ticker_prices[f"{ticker}_previous_close"] = prev_close
-                        else:
-                            ticker_prices[ticker] = 100.0
+                    if len(close_prices) < 2:
+                        st.warning(f"Insufficient data for {ticker}, using default price")
+                        ticker_prices[ticker] = 100.0
                         continue
                     
                     # Special handling for mutual funds
                     if is_mutual_fund(ticker):
                         # For mutual funds, find the most recent two different prices
-                        # since NAV only updates once per day
-                        current_price = hist['Close'].iloc[-1]
+                        current_price = float(close_prices.iloc[-1])
                         
                         # Find the previous different price
                         prev_close = None
-                        for i in range(2, min(len(hist) + 1, 6)):
-                            candidate = hist['Close'].iloc[-i]
+                        for i in range(2, min(len(close_prices) + 1, 6)):
+                            candidate = float(close_prices.iloc[-i])
                             if abs(candidate - current_price) > 0.001:
                                 prev_close = candidate
                                 break
                         
                         if prev_close is None:
-                            prev_close = hist['Close'].iloc[-2] if len(hist) > 1 else current_price
+                            prev_close = float(close_prices.iloc[-2])
                         
                         ticker_prices[ticker] = current_price
                         ticker_prices[f"{ticker}_previous_close"] = prev_close
                     else:
-                        # Regular stocks
-                        if market_is_open:
-                            # Use live price vs yesterday's close
-                            current_price = live_price if live_price else hist['Close'].iloc[-1]
-                            # Previous close is the last complete trading day
-                            prev_close = hist['Close'].iloc[-1] if live_price else hist['Close'].iloc[-2]
-                        else:
-                            # Market is closed: compare last two trading days
-                            # hist[-1] is the most recent trading day's close
-                            # hist[-2] is the day before that
-                            current_price = hist['Close'].iloc[-1]
-                            prev_close = hist['Close'].iloc[-2]
+                        # Regular stocks - compare last two trading days
+                        current_price = float(close_prices.iloc[-1])
+                        prev_close = float(close_prices.iloc[-2])
                         
                         ticker_prices[ticker] = current_price
                         ticker_prices[f"{ticker}_previous_close"] = prev_close
                         
                 except Exception as e:
-                    st.warning(f"Error fetching data for {ticker}: {e}, using default price 100")
-                    ticker_prices[ticker] = 100.0  # Default price
+                    st.warning(f"Error processing {ticker}: {e}, using default price")
+                    ticker_prices[ticker] = 100.0
             
-            st.success("Using real-time market data")
+            # Only show success if we got real data
+            real_prices = [p for t, p in ticker_prices.items() if '_previous_close' not in t and p != 100.0]
+            if real_prices:
+                st.success(f"Using real-time market data ({len(real_prices)} tickers)")
+            else:
+                st.warning("Could not fetch any real-time data")
+                
         except Exception as e:
             st.error(f"Failed to fetch real-time prices: {e}")
             st.info("Falling back to sample data")
-            # Fall back to sample data
             use_realtime_prices = False
     
     # Use sample data if real-time prices are not available or not requested
     if not use_realtime_prices:
-        # Use sample data for demonstration
         for ticker in tickers:
-            ticker_prices[ticker] = 100.0  # Default price
+            ticker_prices[ticker] = 100.0
         st.info("Using sample data (all prices set to $100.00)")
     
     return ticker_prices
-
-
+    
+    return ticker_prices
 def get_stock_prices(portfolio, use_realtime_prices=False):
     """
     Wrapper function to get stock prices with proper caching.
